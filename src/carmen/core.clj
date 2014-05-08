@@ -33,6 +33,22 @@
 ;(index-contains-key? key)
 ;(get-key-from-index key)
 
+(def free-cells-registry (ref {}))
+(def locked-free-cells-registry (ref {}))
+
+(next {:1 1 :2 2 :3 3})
+(first {:1 1 :2 2 :3 3})
+
+(defn push-to-free-cells-registry [key chunk-meta]
+  (dosync
+   (alter free-cells-registry assoc free-cells-registry key chunk-meta)))
+
+(defn acquire-free-cell []
+  (dosync
+   (let [free-cell (take 1 @free-cells-registry)]
+     (alter locked-free-cells-registry assoc locked-free-cells-registry )
+     (alter free-cells-registry (next free-cells-registry)))))
+
 ;;storage operations
 (defn wrap-buffers [& buffers]
   (let [buffer-size (reduce #(+ %1 (.capacity %2)) 0 buffers)]
@@ -63,8 +79,9 @@
 
 ;;TODO: overwrite and read chunk method
 (defn overwrite-chunk [key chunk-body chunk-meta]
-  (let [buffer (wrap-buffers key chunk-body)]
-    (.write get-chunk-store (.rewind buffer) (:position chunk-meta))
+  (let [buffer (wrap-buffers key chunk-body)
+        position (+ (:position chunk-meta) (:size-of-meta constants))]
+    (.write get-chunk-store (.rewind buffer) position)
     (put-key-to-index key chunk-meta)))
 
 (defn get-chunk [key]
@@ -75,8 +92,8 @@
     (.rewind chunk-body)))
 
 ;chunk-meta {:status false :position 12 :size 65536 }
-;(def key (-> (create-buffer 16) (.clear ) (.putInt 12221)))
-;(def chunk-body (-> (create-buffer 256) (.clear ) (.putInt 0 1988)))
+;(def key (-> (create-buffer 16) (.clear ) (.putInt 121)))
+;(def chunk-body (-> (create-buffer 256) (.clear ) (.putInt 0 88)))
 
 ;(-> chunk-body (.rewind ) (.hashCode ))
 ;(.getInt (.rewind chunk-body) 0)
@@ -85,19 +102,25 @@
 ;(append-chunk key chunk-body)
 ;(.size get-chunk-store)
 
+;(overwrite-chunk key chunk-body {:status 127, :position 285, :size 256})
+
 ;(-> (get-chunk key) (.rewind ) (.hashCode ))
 ;(-> (get-chunk key) (.rewind ) (.getInt 0))
 ;(map #(.get (get-chunk key) %) (range 0 256))
 
 ;;business methods
-
 ;;TODO write-overwrite method (add condemned registry)
 (defn persist-chunk [key chunk-body]
-    (if (index-contains-key? key) () ())
-)
+  (if-not (index-contains-key? key)
+    (if (not-empty free-cells)
+      (overwrite-chunk key chunk-body (get-key-from-index key))
+      (append-chunk key chunk-body))
+    (get-key-from-index key)))
 
 ;;TODO read ing method
 
 ;;TODO whole storage loader
 
 ;;TODO testing
+
+;;TODO compressor function
