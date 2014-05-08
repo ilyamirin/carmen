@@ -9,51 +9,65 @@
 (def constants {:size-of-meta 13 :size-of-key 16 :chunk-position-offset 29})
 
 ;;tools
+
 (defn create-buffer [capacity]
   (ByteBuffer/allocate capacity))
 
 (defn buffer-to-seq [buffer]
   (map #(.get (.rewind buffer) %) (range 0 (.capacity buffer))))
 
-;;indexing
+(defn hash-buffer [buffer]
+  (-> buffer (.rewind ) (.hashCode)))
 
-(def index (atom {}))
-
-(defn put-key-to-index [key value]
-  (swap! index assoc (-> key (.clear ) (.hashCode)) value))
-
-(defn index-contains-key? [key]
-  (contains? @index (-> key (.clear ) (.hashCode))))
-
-(defn get-key-from-index [key]
-  (get @index (-> key (.clear ) (.hashCode))))
-
-;(def key (-> (create-buffer 33) (.clear ) (.putInt 12)))
-;(put-key-to-index key {:position 0})
-;(index-contains-key? key)
-;(get-key-from-index key)
-
-(def free-cells-registry (ref {}))
-(def locked-free-cells-registry (ref {}))
-
-(next {:1 1 :2 2 :3 3})
-(first {:1 1 :2 2 :3 3})
-
-(defn push-to-free-cells-registry [key chunk-meta]
-  (dosync
-   (alter free-cells-registry assoc free-cells-registry key chunk-meta)))
-
-(defn acquire-free-cell []
-  (dosync
-   (let [free-cell (take 1 @free-cells-registry)]
-     (alter locked-free-cells-registry assoc locked-free-cells-registry )
-     (alter free-cells-registry (next free-cells-registry)))))
-
-;;storage operations
 (defn wrap-buffers [& buffers]
   (let [buffer-size (reduce #(+ %1 (.capacity %2)) 0 buffers)]
     (reduce #(.put %1 (.rewind %2)) (.clear (create-buffer buffer-size)) buffers)))
 
+;;indexing
+
+;;TODO: birthday paradox
+
+(def index (ref {}))
+(def free-cells-registry (ref {}))
+(def locked-free-cells-registry (ref {}))
+
+(defn put-to-index [key value]
+  (dosync
+   (alter index assoc (hash-buffer key) value)))
+
+(defn index-contains-key? [key]
+  (contains? @index (hash-buffer key)))
+
+(defn get-from-index [key]
+  (get @index (hash-buffer key)))
+
+(defn move-from-index-to-free [key]
+  (dosync
+   (let [key-hash (hash-buffer key)
+         chunk-meta (get @index key-hash)]
+     (alter free-cells-registry assoc key-hash chunk-meta)
+     (alter index dissoc key-hash))))
+
+(defn acquire-free-cell []
+  (dosync
+   (let [key-hash (first (first @free-cells-registry))
+         chunk-meta (get @free-cells-registry key-hash)]
+     (alter locked-free-cells-registry assoc key-hash chunk-meta)
+     (alter free-cells-registry dissoc key-hash))))
+
+(defn finalize-key [key]
+  (dosync
+   (alter locked-free-cells-registry dissoc (hash-buffer key))))
+
+;(def key (-> (create-buffer 33) (.clear ) (.putInt 1)))
+;(put-key-to-index key {:position 21})
+;(index-contains-key? key)
+;(get-key-from-index key)
+;(move-from-index-to-free key)
+;(acquire-free-cell )
+;(finalize-key key)
+
+;;storage operations
 (defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
   (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
         chunk-meta-buffer (create-buffer (:size-of-meta constants))]
@@ -75,17 +89,17 @@
         chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
         (.write get-chunk-store (.rewind buffer) position)
-        (put-key-to-index key chunk-meta)))
+        (put-to-index key chunk-meta)))
 
 ;;TODO: overwrite and read chunk method
-(defn overwrite-chunk [key chunk-body chunk-meta]
+(defn overwrite-chunk [key chunk-body chunk-meta];make getting from index
   (let [buffer (wrap-buffers key chunk-body)
         position (+ (:position chunk-meta) (:size-of-meta constants))]
     (.write get-chunk-store (.rewind buffer) position)
-    (put-key-to-index key chunk-meta)))
+    (put-to-index key chunk-meta)))
 
 (defn get-chunk [key]
-  (let [chunk-meta (get-key-from-index key)
+  (let [chunk-meta (get-from-index key)
         chunk-body (create-buffer (:size chunk-meta))
         chunk-position (+ (:position chunk-meta) (:chunk-position-offset constants))]
     (.read get-chunk-store (.clear chunk-body) chunk-position)
@@ -112,10 +126,10 @@
 ;;TODO write-overwrite method (add condemned registry)
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
-    (if (not-empty free-cells)
-      (overwrite-chunk key chunk-body (get-key-from-index key))
+    (if (not-empty free-cells-registry)
+      (overwrite-chunk key chunk-body (get-from-index key))
       (append-chunk key chunk-body))
-    (get-key-from-index key)))
+    (get-from-index key)))
 
 ;;TODO read ing method
 
