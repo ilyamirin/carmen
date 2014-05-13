@@ -31,6 +31,11 @@
 (def free-cells-registry (ref {}))
 (def locked-free-cells-registry (ref {}))
 
+(defn clean-indexes []
+  (dosync
+   (doall
+     (map #(ref-set % {}) [index free-cells-registry locked-free-cells-registry]))))
+
 (defn put-to-index [key value]
   (dosync
    (alter index assoc (hash-buffer key) value)))
@@ -52,17 +57,22 @@
   (dosync
    (let [key-hash (first (first @free-cells-registry))
          chunk-meta (get @free-cells-registry key-hash)]
+     (alter free-cells-registry dissoc key-hash)
      (alter locked-free-cells-registry assoc key-hash chunk-meta)
-     (alter free-cells-registry dissoc key-hash))))
+     chunk-meta)))
 
 (defn finalize-key [key]
   (dosync
    (alter locked-free-cells-registry dissoc (hash-buffer key))))
 
+;;@index
 ;(def key (-> (create-buffer 33) (.clear ) (.putInt 1)))
-;(put-key-to-index key {:position 21})
+;(put-to-index key {:position 21})
 ;(index-contains-key? key)
-;(get-key-from-index key)
+;(get-from-index key)
+;@index
+;(clean-indexes )
+;@index
 ;(move-from-index-to-free key)
 ;(acquire-free-cell )
 ;(finalize-key key)
@@ -127,7 +137,7 @@
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
     (if (not-empty free-cells-registry)
-      (overwrite-chunk key chunk-body (get-from-index key))
+      (overwrite-chunk key chunk-body (acquire-free-cell ))
       (append-chunk key chunk-body))
     (get-from-index key)))
 
