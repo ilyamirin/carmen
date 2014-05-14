@@ -70,12 +70,14 @@
 
 (defn acquire-free-cell [min-size]
   (dosync
-   (let [free-cell (take-while #(>= (:size %) min-size) @free-cells-registry)
+   (let [free-cell (first (filter #(>= (:size (get % 1)) min-size) @free-cells-registry))
          key-hash (first free-cell)
          chunk-meta (get @free-cells-registry key-hash)]
-     (alter free-cells-registry dissoc key-hash)
-     (alter locked-free-cells-registry assoc key-hash chunk-meta)
-     chunk-meta)))
+     (if-not (nil? free-cell)
+       (do
+         (alter free-cells-registry dissoc key-hash)
+         (alter locked-free-cells-registry assoc key-hash chunk-meta)
+         chunk-meta)))))
 
 (defn finalize-key [key]
   (dosync

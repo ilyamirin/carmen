@@ -6,8 +6,6 @@
 (deftest index-basic-operations-test
   (testing "Single threaded index operations testing."
     (clean-indexes )
-    (reset-chunk-store )
-
     (let [key (-> (create-buffer (:size-of-key constants)) (.clear ) (.putInt (rand-int 65536)))
         chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}
         index-entry {(hash-buffer key) chunk-meta}]
@@ -21,6 +19,9 @@
       (is (and (= @index index-entry) (= @locked-free-cells-registry @free-cells-registry {} )))
 
       (move-from-index-to-free key)
+      (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
+
+      (is (= (acquire-free-cell (+ (:size chunk-meta) 1)) nil))
       (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
 
       (is (= (acquire-free-cell (:size chunk-meta)) chunk-meta))
@@ -41,7 +42,7 @@
     (is (not= (index-contains-key? key) true))
     (is (not= (get-from-index key) chunk-meta))
 
-    (is (not= (acquire-free-cell (:size chunk-meta)) nil))
+    (is (not= (acquire-free-cell 1) nil))
     (is (= (index-contains-key? key) false))
     (is (= (get-from-index key) nil))
 
@@ -61,6 +62,7 @@
         (.get future))
       (.shutdown pool))))
 
+;;TODO: add concurrent b-ops test
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
     (clean-indexes )
@@ -90,7 +92,4 @@
         (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
         (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0))))
       (is (= (get-chunk key) nil))
-      (is (= (.size get-chunk-store) (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))))
-      ;(map #(.get (.rewind chunk-body) %) (range 0 256))
-
-)))
+      (is (= (.size get-chunk-store) (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body)))))))
