@@ -10,6 +10,7 @@
 
 ;;tools
 
+;TODO: add buffers pool
 (defn create-buffer [capacity]
   (ByteBuffer/allocate capacity))
 
@@ -85,6 +86,7 @@
 
 ;;storage operations
 
+;;TODO; Ciphering
 ;;TODO: add while .hasRemaining
 
 (def get-chunk-store (.getChannel (new RandomAccessFile "/tmp/storage.bin" "rw")))
@@ -119,14 +121,8 @@
    (.write get-chunk-store (.clear buffer) position))
   (move-from-index-to-free key))
 
-;(kill-chunk key)
-;(-> (read-chunk key) (.rewind ) (.hashCode ))
-;(-> (read-chunk key) (.rewind ) (.getInt 0))
-;(map #(.get (get-chunk key) %) (range 0 256))
-
 ;;business methods
 
-;;TODO: replace only applicable free place
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
     (if (not-empty @free-cells-registry)
@@ -134,7 +130,6 @@
       (append-chunk key chunk-body))
     (get-from-index key)))
 
-;;TODO reading method
 (defn get-chunk [key]
   (if (index-contains-key? key)
     (read-chunk key)))

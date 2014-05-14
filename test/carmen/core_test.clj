@@ -63,6 +63,8 @@
       (.shutdown pool))))
 
 ;;TODO: add concurrent b-ops test
+;;TODO: add storage size atom control
+
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
     (clean-indexes )
