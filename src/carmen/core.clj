@@ -4,7 +4,7 @@
     [java.nio ByteBuffer]
     [java.nio.channels ServerSocketChannel Selector SelectionKey]
     [java.nio.charset Charset]
-    [java.io RandomAccessFile]))
+    [java.io File RandomAccessFile]))
 
 (def constants {:size-of-meta 13 :size-of-key 16 :chunk-position-offset 29})
 
@@ -23,9 +23,24 @@
   (let [buffer-size (reduce #(+ %1 (.capacity %2)) 0 buffers)]
     (reduce #(.put %1 (.rewind %2)) (.clear (create-buffer buffer-size)) buffers)))
 
+(defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
+  (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
+        chunk-meta-buffer (create-buffer (:size-of-meta constants))]
+    (-> chunk-meta-buffer
+        (.put 0 (:status chunk-meta))
+        (.putLong 1 (:position chunk-meta))
+        (.putInt 9 (:size chunk-meta))
+        (.rewind ))
+    (-> (create-buffer capacity)
+        (.clear )
+        (.put chunk-meta-buffer)
+        (.put (.rewind key))
+        (.put (.rewind chunk-body)))))
+
 ;;indexing
 
-;;TODO: birthday paradox
+;;TODO: Bloom filter
+;;TODO: birthday paradox??
 
 (def index (ref {}))
 (def free-cells-registry (ref {}))
@@ -65,34 +80,14 @@
   (dosync
    (alter locked-free-cells-registry dissoc (hash-buffer key))))
 
-;;@index
-;(def key (-> (create-buffer 33) (.clear ) (.putInt 1)))
-;(put-to-index key {:position 21})
-;(index-contains-key? key)
-;(get-from-index key)
-;@index
-;(clean-indexes )
-;@index
-;(move-from-index-to-free key)
-;(acquire-free-cell )
-;(finalize-key key)
-
 ;;storage operations
-(defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
-  (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
-        chunk-meta-buffer (create-buffer (:size-of-meta constants))]
-    (-> chunk-meta-buffer
-        (.put 0 (:status chunk-meta))
-        (.putLong 1 (:position chunk-meta))
-        (.putInt 9 (:size chunk-meta))
-        (.rewind ))
-    (-> (create-buffer capacity)
-        (.clear )
-        (.put chunk-meta-buffer)
-        (.put (.rewind key))
-        (.put (.rewind chunk-body)))))
+
+;;TODO: add while .hasRemaining
 
 (def get-chunk-store (.getChannel (new RandomAccessFile "/tmp/storage.bin" "rw")))
+
+(defn reset-chunk-store []
+  (.truncate get-chunk-store 0))
 
 (defn append-chunk [key chunk-body]
   (let [position (.size get-chunk-store)
@@ -108,43 +103,45 @@
     (.write get-chunk-store (.rewind buffer) position)
     (put-to-index key chunk-meta)))
 
-(defn get-chunk [key]
+(defn read-chunk [key]
   (let [chunk-meta (get-from-index key)
         chunk-body (create-buffer (:size chunk-meta))
         chunk-position (+ (:position chunk-meta) (:chunk-position-offset constants))]
     (.read get-chunk-store (.clear chunk-body) chunk-position)
     (.rewind chunk-body)))
 
-;chunk-meta {:status false :position 12 :size 65536 }
-;(def key (-> (create-buffer 16) (.clear ) (.putInt 121)))
-;(def chunk-body (-> (create-buffer 256) (.clear ) (.putInt 0 88)))
+(defn kill-chunk [key]
+  (let [position (:position (get-from-index key))
+       buffer (.put (create-buffer 1) 0 0)]
+   (.write get-chunk-store (.clear buffer) position))
+  (move-from-index-to-free key))
 
-;(-> chunk-body (.rewind ) (.hashCode ))
-;(.getInt (.rewind chunk-body) 0)
-;(map #(.get (.rewind chunk-body) %) (range 0 256))
-
-;(append-chunk key chunk-body)
-;(.size get-chunk-store)
-
-;(overwrite-chunk key chunk-body {:status 127, :position 285, :size 256})
-
-;(-> (get-chunk key) (.rewind ) (.hashCode ))
-;(-> (get-chunk key) (.rewind ) (.getInt 0))
+;(kill-chunk key)
+;(-> (read-chunk key) (.rewind ) (.hashCode ))
+;(-> (read-chunk key) (.rewind ) (.getInt 0))
 ;(map #(.get (get-chunk key) %) (range 0 256))
 
 ;;business methods
-;;TODO write-overwrite method (add condemned registry)
+
+;;TODO: replace only applicable free place
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
-    (if (not-empty free-cells-registry)
+    (if (not-empty @free-cells-registry)
       (overwrite-chunk key chunk-body (acquire-free-cell ))
       (append-chunk key chunk-body))
     (get-from-index key)))
 
-;;TODO read ing method
+;;TODO reading method
+(defn get-chunk [key]
+  (if (index-contains-key? key)
+    (read-chunk key)))
+
+;;TODO removing method
+(defn remove-chunk [key]
+  (if (index-contains-key? key) (kill-chunk key)))
 
 ;;TODO whole storage loader
 
-;;TODO testing
-
 ;;TODO compressor function
+
+;;TODO web server
