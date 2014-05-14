@@ -68,9 +68,10 @@
      (alter free-cells-registry assoc key-hash chunk-meta)
      (alter index dissoc key-hash))))
 
-(defn acquire-free-cell []
+(defn acquire-free-cell [min-size]
   (dosync
-   (let [key-hash (first (first @free-cells-registry))
+   (let [free-cell (take-while #(>= (:size %) min-size) @free-cells-registry)
+         key-hash (first free-cell)
          chunk-meta (get @free-cells-registry key-hash)]
      (alter free-cells-registry dissoc key-hash)
      (alter locked-free-cells-registry assoc key-hash chunk-meta)
@@ -127,7 +128,7 @@
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
     (if (not-empty @free-cells-registry)
-      (overwrite-chunk key chunk-body (acquire-free-cell ))
+      (overwrite-chunk key chunk-body (acquire-free-cell (.capacity chunk-body)))
       (append-chunk key chunk-body))
     (get-from-index key)))
 

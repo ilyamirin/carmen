@@ -23,7 +23,7 @@
       (move-from-index-to-free key)
       (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
 
-      (is (= (acquire-free-cell ) chunk-meta))
+      (is (= (acquire-free-cell (:size chunk-meta)) chunk-meta))
       (is (and (= @index @free-cells-registry {}) (= @locked-free-cells-registry index-entry)))
 
       (finalize-key key)
@@ -41,7 +41,7 @@
     (is (not= (index-contains-key? key) true))
     (is (not= (get-from-index key) chunk-meta))
 
-    (is (not= (acquire-free-cell ) nil))
+    (is (not= (acquire-free-cell (:size chunk-meta)) nil))
     (is (= (index-contains-key? key) false))
     (is (= (get-from-index key) nil))
 
