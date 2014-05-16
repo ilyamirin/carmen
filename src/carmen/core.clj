@@ -69,6 +69,11 @@
      (alter free-cells-registry assoc key-hash chunk-meta)
      (alter index dissoc key-hash))))
 
+;;TODO: test this
+(defn put-to-free [key value]
+  (dosync
+    (alter free-cells-registry assoc (hash-buffer key) value)))
+
 (defn acquire-free-cell [min-size]
   (dosync
    (let [free-cell (first (filter #(>= (:size (get % 1)) min-size) @free-cells-registry))
@@ -86,8 +91,9 @@
 
 ;;storage operations
 
-;;TODO; Ciphering
-;;TODO: add while .hasRemaining
+;;TODO: Ciphering
+;;TODO: add while .
+;;TODO: add multy storage support
 
 (def get-chunk-store (.getChannel (new RandomAccessFile "/tmp/storage.bin" "rw")))
 
@@ -117,8 +123,8 @@
 
 (defn kill-chunk [key]
   (let [position (:position (get-from-index key))
-       buffer (.put (create-buffer 1) 0 0)]
-   (.write get-chunk-store (.clear buffer) position))
+        buffer (.put (create-buffer 1) 0 Byte/MIN_VALUE)]
+    (.write get-chunk-store (.clear buffer) position))
   (move-from-index-to-free key))
 
 ;;business methods
@@ -134,11 +140,55 @@
   (if (index-contains-key? key)
     (read-chunk key)))
 
-;;TODO removing method
 (defn remove-chunk [key]
   (if (index-contains-key? key) (kill-chunk key)))
 
-;;TODO whole storage loader
+;;TODO whole storage loader - gest this trash
+
+(defn buffer-to-meta [buffer]
+  {:status (.get buffer 0)
+   :position (.getLong buffer 1)
+   :size (.getInt buffer 9)})
+
+(defn load-existed-chunk-meta [position]
+  (let [meta-buffer (create-buffer (:size-of-meta constants))]
+    (.read get-chunk-store (.clear meta-buffer) position)
+    (buffer-to-meta meta-buffer)))
+
+(defn load-existed-chunk-key [chunk-meta]
+  (let [key-buffer (create-buffer (:size-of-key constants))
+        position (+ (:position chunk-meta) (:size-of-meta constants))]
+    (.read get-chunk-store (.clear key-buffer) position)
+    (if (= (:status chunk-meta) Byte/MAX_VALUE)
+      (put-to-index key-buffer chunk-meta)
+      (put-to-free key-buffer chunk-meta))
+    chunk-meta))
+
+(load-existed-chunk-key (load-existed-chunk-meta 0))
+
+(reset-chunk-store)
+
+(let [key (-> (create-buffer 16) (.clear) (.putInt 0 (rand-int 65536)))
+      chunk-body (-> (create-buffer 256) (.clear) (.putInt 0 (rand-int 65536)))
+      key1 (-> (create-buffer 16) (.clear) (.putInt 0 (rand-int 65536)))
+      chunk-body1 (-> (create-buffer 256) (.clear) (.putInt 0 (rand-int 65536)))]
+
+  (persist-chunk key chunk-body))
+
+(load-existed-chunk-key (load-existed-chunk-meta 0))
+(clean-indexes)
+
+(defn load-whole-existed-storage []
+  (loop [position 0]
+    (if (>= position (.size get-chunk-store))
+      true
+      (recur
+        (+ position
+          (:size (load-existed-chunk-key (load-existed-chunk-meta position)))
+          (:chunk-position-offset constants))))))
+
+(load-whole-existed-storage)
+@index
 
 ;;TODO compressor function
 

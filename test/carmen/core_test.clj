@@ -95,3 +95,12 @@
         (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0))))
       (is (= (get-chunk key) nil))
       (is (= (.size get-chunk-store) (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body)))))))
+
+(deftest buffer-to-chunk-meta-test
+  (testing "Test deserializing buffer to chunk meta map"
+    (-> (create-buffer (:size-of-meta constants))
+      (.put 0 Byte/MAX_VALUE)
+      (.putLong 1 65549)
+      (.putInt 9 256)
+      (buffer-to-meta)
+      (is {:status 127, :position 65549, :size 256}))))
