@@ -1,5 +1,7 @@
 (ns carmen.core-test
   (:require [clojure.test :refer :all]
+            [carmen.tools :refer :all]
+            [carmen.index :refer :all]
             [carmen.core :refer :all])
   (:import [java.util.concurrent Executors]))
 
@@ -28,12 +30,15 @@
       (is (and (= @index @free-cells-registry {}) (= @locked-free-cells-registry index-entry)))
 
       (finalize-key key)
-      (is (and (= @index @free-cells-registry @locked-free-cells-registry {}))))))
+      (is (and (= @index @free-cells-registry @locked-free-cells-registry {})))
+      
+      (put-to-free key chunk-meta)
+      (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry))))))
 
+;TODO make it really breakes test
 (defn concurrent-index-test-atom []
   (let [key (-> (create-buffer (:size-of-key constants)) (.clear ) (.putInt (rand-int 65536)))
-        chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}]
-    ;make it really breakes test
+        chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}]    
     (is (not= (put-to-index key chunk-meta) nil))
     (is (= (index-contains-key? key) true))
     (is (= (get-from-index key) chunk-meta))
@@ -68,7 +73,8 @@
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
     (clean-indexes )
-
+    (is (= @index @free-cells-registry @locked-free-cells-registry {}))
+    
     (reset-chunk-store )
     (is (= (.size get-chunk-store) 0))
 
@@ -93,8 +99,20 @@
       (let [get-chunk-result (get-chunk key1)]
         (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
         (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0))))
-      (is (= (get-chunk key) nil))
-      (is (= (.size get-chunk-store) (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body)))))))
+
+      (is (= (.size get-chunk-store) (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))))
+          
+      (clean-indexes)
+      (is (= @index @free-cells-registry @locked-free-cells-registry {}))
+      (is (load-existed-chunk-key (load-existed-chunk-meta 0)) key1)
+
+      (clean-indexes)      
+      (is (load-whole-existed-storage ))
+        
+	    (is (= (get-chunk key) nil))
+	    (let [get-chunk-result (get-chunk key1)]
+       (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
+       (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0)))))))
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"
