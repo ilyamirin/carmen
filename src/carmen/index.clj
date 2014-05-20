@@ -3,9 +3,9 @@
 
 ;;indexing
 
-;;TODO easy find by size (find least applicable)
+;;TODO optimize finding by size
 ;;TODO: Bloom filter
-;;TODO: birthday paradox??
+;;TODO: birthday paradox problem (large keys?)
 
 (def index (ref {}))
 (def free-cells-registry (ref {}))
@@ -37,13 +37,15 @@
   (dosync
     (alter free-cells-registry assoc (hash-buffer key) value)))
 
+(defn- find-the-least-applicable-cell [min-size]
+  (first (filter #(>= (:size (get % 1)) min-size) @free-cells-registry)))
+
 (defn acquire-free-cell [min-size]
   (dosync
-   (let [free-cell (first (filter #(>= (:size (get % 1)) min-size) @free-cells-registry)) ;optimize - find least applicable
-         key-hash (first free-cell)
-         chunk-meta (second free-cell)]
+   (let [free-cell (find-the-least-applicable-cell min-size)]
      (if-not (nil? free-cell)
-       (do
+      (let [key-hash (first free-cell)
+            chunk-meta (second free-cell)]
          (alter free-cells-registry dissoc key-hash)
          (alter locked-free-cells-registry assoc key-hash chunk-meta)
          free-cell)))))

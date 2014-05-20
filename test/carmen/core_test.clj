@@ -37,7 +37,7 @@
       (put-to-free key chunk-meta)
       (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry))))))
 
-;TODO make it really breakes test
+;TODO make it really breakes the test
 (defn concurrent-index-test-atom []
   (let [key (-> (create-buffer (:size-of-key constants)) (.clear ) (.putInt (rand-int 65536)))
         chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}]    
@@ -68,9 +68,6 @@
       (doseq [future (.invokeAll pool tasks)]
         (.get future))
       (.shutdown pool))))
-
-;;TODO: add concurrent b-ops test
-;;TODO: add storage size atom control
 
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
@@ -115,6 +112,8 @@
 	    (let [get-chunk-result (get-chunk key1)]
        (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
        (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0)))))))
+
+;;TODO: add concurrent b-ops test
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"
