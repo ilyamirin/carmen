@@ -20,17 +20,19 @@
   (.truncate get-chunk-store 0))
 
 (defn- append-chunk [key chunk-body]
-  (let [position (.size get-chunk-store)
+  (locking get-chunk-store
+    (let [position (.size get-chunk-store)
         chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
         (.write get-chunk-store (.rewind buffer) position)
-        (put-to-index key chunk-meta)))
+        (put-to-index key chunk-meta))))
 
 (defn- overwrite-chunk [key chunk-body free-cell]
   (let [free-key (first free-cell)
         chunk-meta (assoc (second free-cell) :status Byte/MAX_VALUE)
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
-    (.write get-chunk-store (.rewind buffer) (:position chunk-meta))
+    (locking get-chunk-store
+      (.write get-chunk-store (.rewind buffer) (:position chunk-meta)))
     (put-to-index key chunk-meta)
     (finalize-free-cell free-key)))
 
@@ -38,13 +40,15 @@
   (let [chunk-meta (get-from-index key)
         chunk-body (create-buffer (:size chunk-meta))
         chunk-position (+ (:position chunk-meta) (:chunk-position-offset constants))]
-    (.read get-chunk-store (.clear chunk-body) chunk-position)
+    (locking get-chunk-store
+      (.read get-chunk-store (.clear chunk-body) chunk-position))
     (.rewind chunk-body)))
 
 (defn- kill-chunk [key]
   (let [position (:position (get-from-index key))
         buffer (.put (create-buffer 1) 0 Byte/MIN_VALUE)]
-    (.write get-chunk-store (.clear buffer) position))
+    (locking get-chunk-store
+      (.write get-chunk-store (.clear buffer) position)))
   (move-from-index-to-free key))
 
 ;;business methods

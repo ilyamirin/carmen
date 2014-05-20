@@ -69,6 +69,7 @@
         (.get future))
       (.shutdown pool))))
 
+;TODO: test b functions results
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
     (clean-indexes )
@@ -114,6 +115,33 @@
        (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0)))))))
 
 ;;TODO: add concurrent b-ops test
+;;TODO: fix test (locked mutex probably)
+(deftest chunk-business-operations-test
+  (testing "Concurrent test of chunks persist/read/remove operations."
+    (clean-indexes )
+    (reset-chunk-store )
+
+    (def chunks (ref {}))
+
+    ;;TODO: add storage size control
+    (defn one-operation-quad []
+      (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int 65536)))
+            chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int 65536)))]
+        (persist-chunk key chunk-body)
+        (dosync chunks assoc (hash-buffer key) chunk-body)
+        (is (= (hash-buffer (get-chunk key)) (hash-buffer chunk-body)))
+        (is (= (.getInt (get-chunk key) 0) (.getInt chunk-body 0)))
+        ;(remove-chunk key)
+        ;(dosync chunks dissoc (hash-buffer key))
+        ;(is (nil? (get-chunk key)))
+        ))
+
+    (defn repeated-quad [n]
+      (dorun n
+        (repeatedly n #(one-operation-quad ))))
+
+    (map deref [(future (repeated-quad 100)) (future (repeated-quad 100))])
+    (Thread/sleep 2000)))
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"
