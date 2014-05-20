@@ -41,13 +41,13 @@
   (dosync
    (let [free-cell (first (filter #(>= (:size (get % 1)) min-size) @free-cells-registry)) ;optimize - find least applicable
          key-hash (first free-cell)
-         chunk-meta (get @free-cells-registry key-hash)]
+         chunk-meta (second free-cell)]
      (if-not (nil? free-cell)
        (do
          (alter free-cells-registry dissoc key-hash)
          (alter locked-free-cells-registry assoc key-hash chunk-meta)
-         chunk-meta)))))
+         free-cell)))))
 
-(defn finalize-key [key]
+(defn finalize-free-cell [free-key]
   (dosync
-   (alter locked-free-cells-registry dissoc (hash-buffer key))))
+    (alter locked-free-cells-registry dissoc free-key)))

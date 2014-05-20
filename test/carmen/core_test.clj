@@ -26,12 +26,14 @@
       (is (= (acquire-free-cell (+ (:size chunk-meta) 1)) nil))
       (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
 
-      (is (= (acquire-free-cell (:size chunk-meta)) chunk-meta))
-      (is (and (= @index @free-cells-registry {}) (= @locked-free-cells-registry index-entry)))
+      (let [free-cell (acquire-free-cell (:size chunk-meta))]
+        (is (= (first free-cell) (hash-buffer key)))
+        (is (= (second free-cell) chunk-meta))
+        (is (and (= @index @free-cells-registry {}) (= @locked-free-cells-registry index-entry)))
 
-      (finalize-key key)
-      (is (and (= @index @free-cells-registry @locked-free-cells-registry {})))
-      
+        (finalize-free-cell (hash-buffer key))
+        (is (and (= @index @free-cells-registry @locked-free-cells-registry {}))))
+
       (put-to-free key chunk-meta)
       (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry))))))
 
@@ -51,7 +53,7 @@
     (is (= (index-contains-key? key) false))
     (is (= (get-from-index key) nil))
 
-    (finalize-key key)
+    (finalize-free-cell (hash-buffer key))
     (is (= (index-contains-key? key) false))
     (is (= (get-from-index key) nil))))
 

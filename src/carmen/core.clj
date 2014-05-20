@@ -24,11 +24,13 @@
         (.write get-chunk-store (.rewind buffer) position)
         (put-to-index key chunk-meta)))
 
-(defn overwrite-chunk [key chunk-body chunk-meta];make getting from index
-  (let [buffer (wrap-key-chunk-and-meta key chunk-body (assoc chunk-meta :status Byte/MAX_VALUE))
-        position (:position chunk-meta)]
-    (.write get-chunk-store (.rewind buffer) position)
-    (put-to-index key chunk-meta)))
+(defn overwrite-chunk [key chunk-body free-cell]
+  (let [free-key (first free-cell)
+        chunk-meta (assoc (second free-cell) :status Byte/MAX_VALUE)
+        buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
+    (.write get-chunk-store (.rewind buffer) (:position chunk-meta))
+    (put-to-index key chunk-meta)
+    (finalize-free-cell free-key)))
 
 (defn read-chunk [key]
   (let [chunk-meta (get-from-index key)
@@ -59,8 +61,7 @@
 (defn remove-chunk [key]
   (if (index-contains-key? key) (kill-chunk key)))
 
-;;TODO splite code to 4 NS
-;;TODO whole storage loader - gest this trash
+;;existed storage processing
 
 (defn load-existed-chunk-meta [position]
   (let [meta-buffer (create-buffer (:size-of-meta constants))]
@@ -82,7 +83,8 @@
       true
       (recur
         (+ position
-          (:size (load-existed-chunk-key (load-existed-chunk-meta position)))
+          (:size (load-existed-chunk-key
+                   (load-existed-chunk-meta position)))
           (:chunk-position-offset constants))))))
 
 ;;TODO compressor function
