@@ -28,9 +28,8 @@
 
 (defn move-from-index-to-free [key]
   (dosync
-   (let [key-hash (hash-buffer key)
-         chunk-meta (get @index key-hash)]
-     (alter free-cells-registry assoc key-hash chunk-meta)
+   (let [key-hash (hash-buffer key)]
+     (alter free-cells-registry assoc key-hash (get @index key-hash))
      (alter index dissoc key-hash))))
 
 (defn put-to-free [key value]

@@ -11,7 +11,6 @@
 ;;TODO: ciphering
 ;;TODO: large keys
 ;;TODO: exceptions processing
-;;TODO: add while hasRemaining
 ;;TODO: add multy storage support
 
 (def get-chunk-store (.getChannel (new RandomAccessFile "/tmp/storage.bin" "rw")))
@@ -22,33 +21,39 @@
 (defn- append-chunk [key chunk-body]
   (locking get-chunk-store
     (let [position (.size get-chunk-store)
-        chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
-        buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
-        (.write get-chunk-store (.rewind buffer) position)
-        (put-to-index key chunk-meta))))
+          chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
+          buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
+      (while (.hasRemaining buffer)
+        (.write get-chunk-store buffer position))
+      (put-to-index key chunk-meta)
+      chunk-meta)))
 
 (defn- overwrite-chunk [key chunk-body free-cell]
   (let [free-key (first free-cell)
-        chunk-meta (assoc (second free-cell) :status Byte/MAX_VALUE)
+        position (:position (second free-cell))
+        chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
     (locking get-chunk-store
-      (.write get-chunk-store (.rewind buffer) (:position chunk-meta)))
+      (while (.hasRemaining buffer)
+        (.write get-chunk-store buffer position)))
     (put-to-index key chunk-meta)
     (finalize-free-cell free-key)))
 
 (defn- read-chunk [key]
   (let [chunk-meta (get-from-index key)
-        chunk-body (create-buffer (:size chunk-meta))
+        chunk-body (.clear (create-buffer (:size chunk-meta)))
         chunk-position (+ (:position chunk-meta) (:chunk-position-offset constants))]
     (locking get-chunk-store
-      (.read get-chunk-store (.clear chunk-body) chunk-position))
+      (while (.hasRemaining chunk-body)
+        (.read get-chunk-store chunk-body chunk-position)))
     (.rewind chunk-body)))
 
 (defn- kill-chunk [key]
   (let [position (:position (get-from-index key))
-        buffer (.put (create-buffer 1) 0 Byte/MIN_VALUE)]
+        buffer (.rewind (.put (create-buffer 1) 0 Byte/MIN_VALUE))]
     (locking get-chunk-store
-      (.write get-chunk-store (.clear buffer) position)))
+      (while (.hasRemaining buffer)
+        (.write get-chunk-store buffer position))))
   (move-from-index-to-free key))
 
 ;;business methods
