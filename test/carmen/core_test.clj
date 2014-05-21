@@ -114,7 +114,6 @@
        (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
        (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0)))))))
 
-;;TODO: add concurrent b-ops test
 (deftest chunk-business-operations-test
   (testing "Concurrent test of chunks persist/read/remove operations."
     (clean-indexes )
@@ -129,15 +128,15 @@
     (def chunks (ref {}))
     (def removed-chunks (ref {}))
 
-    ;;TODO; add exit latch
     ;;TODO: add storage size control
     ;;TODO: add final control
+    ;;TODO: 17Mb per second is needed!!!
     (defn one-operation-quad []
       (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)));(peek @keys-to-persist)
             chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))] ;fill and check the whole chunk
 
-        (time (persist-chunk key chunk-body))
-;        (dosync (alter keys-to-persist pop))
+        (persist-chunk key chunk-body)
+        ;        (dosync (alter keys-to-persist pop))
 
         (dosync (alter chunks assoc (hash-buffer key) chunk-body))
 
@@ -146,7 +145,7 @@
 
         (if (> (rand) 0.5)
           (do
-            (time (remove-chunk key))
+            (remove-chunk key)
             (is (nil? (get-chunk key)))))
 
         ;(dosync
@@ -157,14 +156,14 @@
 
     (defn repeated-quad [n]
       (dorun n
-        (repeatedly n #(one-operation-quad ))))
+        (repeatedly n #(one-operation-quad)))
+      (println "One testing thread has finished."))
 
-    (map deref [(future (repeated-quad 100)) (future (repeated-quad 100))])
-    (Thread/sleep 2000)
-    (println "count= " (count @chunks))
-    (println (keys @chunks))
-    (println (keys @removed-chunks))
-    ))
+    (def start (System/currentTimeMillis))
+    (doall (map deref [(future (repeated-quad 1000)) (future (repeated-quad 1000))]))
+    (println "finished for" (- (System/currentTimeMillis) start) "mseconds")
+
+    (println "count= " (count @chunks))))
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"

@@ -60,8 +60,9 @@
 
 (defn persist-chunk [key chunk-body]
   (if-not (index-contains-key? key)
-    (if (not-empty @free-cells-registry)
-      (overwrite-chunk key chunk-body (acquire-free-cell (.capacity chunk-body)))
+    (let [free-cell (acquire-free-cell (.capacity chunk-body))]
+      (if-not (nil? free-cell)
+        (overwrite-chunk key chunk-body free-cell))
       (append-chunk key chunk-body))
     (get-from-index key)))
 
