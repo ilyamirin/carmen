@@ -149,10 +149,10 @@
     (defn repeated-quad [n]
       (dorun n
         (repeatedly n #(one-operation-quad)))
-      (println "One testing thread has finished."))
+      (println "One testing thread has finished at" (System/currentTimeMillis)))
 
     (def start (System/currentTimeMillis))
-    (doall (map deref [(future (repeated-quad 1000)) (future (repeated-quad 1000)) (future (repeated-quad 1000))]))
+    (doall (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
     (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
 
     (doall (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks)))

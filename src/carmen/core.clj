@@ -9,6 +9,7 @@
 ;;storage operations
 
 ;;TODO: ciphering
+;;TODO: add logger
 ;;TODO: large keys?
 ;;TODO: exceptions processing
 ;;TODO: add multy storage support
