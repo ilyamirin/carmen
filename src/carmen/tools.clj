@@ -20,7 +20,6 @@
   (let [buffer-size (reduce #(+ %1 (.capacity %2)) 0 buffers)]
     (reduce #(.put %1 (.rewind %2)) (.clear (create-buffer buffer-size)) buffers)))
 
-;;TODO: find nearest multiple of two buffer for buffer
 (defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
   (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
         chunk-meta-buffer (create-buffer (:size-of-meta constants))]

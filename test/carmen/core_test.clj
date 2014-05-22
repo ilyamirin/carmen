@@ -128,17 +128,13 @@
     (def chunks (ref {}))
     (def removed-chunks (ref {}))
 
-    ;;TODO: add storage size control
-    ;;TODO: add final control
-    ;;TODO: 17Mb per second is needed!!!
+    ;TODO: fill and check the whole chunk
+    ;TODO: use separate arrays for keys and chunks
     (defn one-operation-quad []
-      (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)));(peek @keys-to-persist)
-            chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))] ;fill and check the whole chunk
+      (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))
+            chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))]
 
         (persist-chunk key chunk-body)
-        ;        (dosync (alter keys-to-persist pop))
-
-        (dosync (alter chunks assoc (hash-buffer key) chunk-body))
 
         (is (= (hash-buffer (get-chunk key)) (hash-buffer chunk-body)))
         (is (= (.getInt (get-chunk key) 0) (.getInt chunk-body 0)))
@@ -146,13 +142,9 @@
         (if (> (rand) 0.5)
           (do
             (remove-chunk key)
-            (is (nil? (get-chunk key)))))
-
-        ;(dosync
-         ; (alter removed-chunks assoc (hash-buffer key) chunk-body)
-          ;(alter chunks dissoc (hash-buffer key))
-         ; )
-        ))
+            (is (nil? (get-chunk key)))
+            (dosync (alter removed-chunks assoc key chunk-body)))
+          (dosync (alter chunks assoc key chunk-body)))))
 
     (defn repeated-quad [n]
       (dorun n
@@ -160,10 +152,16 @@
       (println "One testing thread has finished."))
 
     (def start (System/currentTimeMillis))
-    (doall (map deref [(future (repeated-quad 1000)) (future (repeated-quad 1000))]))
-    (println "finished for" (- (System/currentTimeMillis) start) "mseconds")
+    (doall (map deref [(future (repeated-quad 1000)) (future (repeated-quad 1000)) (future (repeated-quad 1000))]))
+    (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
 
-    (println "count= " (count @chunks))))
+    (doall (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+
+    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
+      (println (int (/ summary-space 1000000)) "Mb of space was used")
+      (is (< (.size get-chunk-store) (* summary-space 1.5))))))
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"

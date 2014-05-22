@@ -9,7 +9,7 @@
 ;;storage operations
 
 ;;TODO: ciphering
-;;TODO: large keys
+;;TODO: large keys?
 ;;TODO: exceptions processing
 ;;TODO: add multy storage support
 
@@ -62,8 +62,8 @@
   (if-not (index-contains-key? key)
     (let [free-cell (acquire-free-cell (.capacity chunk-body))]
       (if-not (nil? free-cell)
-        (overwrite-chunk key chunk-body free-cell))
-      (append-chunk key chunk-body))
+        (overwrite-chunk key chunk-body free-cell)
+        (append-chunk key chunk-body)))
     (get-from-index key)))
 
 (defn get-chunk [key]
