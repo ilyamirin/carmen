@@ -14,8 +14,10 @@
 ;;TODO: exceptions processing
 ;;TODO: add multy storage support
 
-;;TODO: add setter and getter
-(def get-chunk-store (.getChannel (RandomAccessFile. "/tmp/storage.bin" "rw")))
+(def get-chunk-store nil)
+
+(defn set-chunk-store [path-to-chunk-store]
+  (.getChannel (RandomAccessFile. path-to-chunk-store "rw")))
 
 (defn reset-chunk-store []
   (.truncate get-chunk-store 0))
@@ -106,6 +108,6 @@
 (defn compress-storage [] 
   )
 
-;;TODO: drain
+;;TODO: drain function
 
 ;;TODO web server

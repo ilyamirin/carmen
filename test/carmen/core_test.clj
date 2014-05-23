@@ -82,6 +82,7 @@
     (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
     (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
 
+    ;;;TODO: add chunk hash and number check
     (doall
       (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks))
       (map #(is (not (get-chunk %))) (keys @removed-chunks)))
