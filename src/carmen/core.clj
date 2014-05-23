@@ -8,16 +8,14 @@
 
 ;;storage operations
 
+;;TODO: switch to atoms (one atom per storage)
+;;TODO: add multy storage support
 ;;TODO: ciphering
 ;;TODO: add logger
 ;;TODO: large keys?
 ;;TODO: exceptions processing
-;;TODO: add multy storage support
 
-(def get-chunk-store nil)
-
-(defn set-chunk-store [path-to-chunk-store]
-  (.getChannel (RandomAccessFile. path-to-chunk-store "rw")))
+(def get-chunk-store (.getChannel (RandomAccessFile. "./storage.bin" "rw")))
 
 (defn reset-chunk-store []
   (.truncate get-chunk-store 0))
@@ -37,6 +35,7 @@
         position (:position (second free-cell))
         chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
+    (println position)
     (locking get-chunk-store
       (while (.hasRemaining buffer)
         (.write get-chunk-store buffer position)))
@@ -95,14 +94,18 @@
 
 ;;TODO: parallel test
 (defn load-whole-existed-storage []
-  (loop [position 0]
-    (if (>= position (.size get-chunk-store))
-      true
-      (recur
-        (+ position
-          (:size (load-existed-chunk-key
-                   (load-existed-chunk-meta position)))
-          (:chunk-position-offset constants))))))
+  (locking get-chunk-store
+    (loop [position 0]
+      (println position)
+      (if (= (rem (count @index) 100) 0) (println (count @index) " chunks were loaded."))
+      (if (>= position (.size get-chunk-store))
+        true
+        (recur
+          (+ position
+            (:size
+              (load-existed-chunk-key
+                (load-existed-chunk-meta position)))
+            (:chunk-position-offset constants)))))))
 
 ;;TODO compressor function
 (defn compress-storage [] 

@@ -56,7 +56,6 @@
     (def chunks (ref {}))
     (def removed-chunks (ref {}))
 
-    ;TODO: fill and check the whole chunk
     (defn one-operation-quad []
       (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))
             chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))]
@@ -78,17 +77,41 @@
         (repeatedly n #(one-operation-quad)))
       (println "One testing thread has finished at" (System/currentTimeMillis)))
 
+    (defn chunks-is-equal? [chunk1 chunk2]
+      (and
+        (= chunk1 chunk2)
+        (= (hash-buffer chunk1) (hash-buffer chunk2))))
+
     (def start (System/currentTimeMillis))
-    (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+    (dorun (pvalues (repeated-quad 10) (repeated-quad 10) (repeated-quad 10)))
     (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
 
-    ;;;TODO: add chunk hash and number check
-    (doall
-      (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks))
-      (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+    ;;;TODO: fill and check the whole chunk
+    (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
 
     (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
           summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
       (println (int (/ summary-space 1000000)) "Mb of space was used")
-      (is (< (.size get-chunk-store) (* summary-space 1.5))))))
+      (is (< (.size get-chunk-store) (* summary-space 1.5))))
+
+    (clean-indexes )
+    (load-whole-existed-storage )
+
+    (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+
+    ;(def start (System/currentTimeMillis))
+    ;(dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+    ;(println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds");
+
+  ;  (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
+  ;  (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+
+    ;(let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+    ;      summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
+    ;  (println (int (/ summary-space 1000000)) "Mb of space was used")
+    ;  (is (< (.size get-chunk-store) (* summary-space 1.5))))
+
+    ))
 
