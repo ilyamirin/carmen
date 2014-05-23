@@ -4,6 +4,7 @@
             [carmen.index :refer :all]
             [carmen.core :refer :all]))
 
+;TODO: fix test
 ;TODO: test b functions results
 (deftest chunk-business-operations-test
   (testing "Test chunks persist/read/remove operations."
@@ -57,8 +58,9 @@
     (def removed-chunks (ref {}))
 
     (defn one-operation-quad []
-      (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))
-            chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))]
+      ;TODO: add random buffer generator
+      (let [key (-> (create-buffer 16) (.clear) (.putInt 0 (rand-int Integer/MAX_VALUE)) (.putInt 4 (rand-int Integer/MAX_VALUE)) (.putInt 8 (rand-int Integer/MAX_VALUE)))
+            chunk-body (-> (create-buffer (+ 4 (rand-int 65536))) (.clear) (.putInt 0 (rand-int Integer/MAX_VALUE)))]
 
         (persist-chunk key chunk-body)
 
@@ -83,8 +85,9 @@
         (= (hash-buffer chunk1) (hash-buffer chunk2))))
 
     (def start (System/currentTimeMillis))
-    (dorun (pvalues (repeated-quad 10) (repeated-quad 10) (repeated-quad 10)))
+    (dorun (pvalues (repeated-quad 10000) (repeated-quad 10000) (repeated-quad 10000)))
     (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
+    (Thread/sleep 2000)
 
     ;;;TODO: fill and check the whole chunk
     (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
@@ -96,22 +99,23 @@
       (is (< (.size get-chunk-store) (* summary-space 1.5))))
 
     (clean-indexes )
-    (load-whole-existed-storage )
+    (is (load-whole-existed-storage))
+    (Thread/sleep 2000)
+
+    (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+    (Thread/sleep 2000)
+
+    (def start (System/currentTimeMillis))
+    (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+    ;;;TODO shows too much count
+    (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds") ;
 
     (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
     (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
 
-    ;(def start (System/currentTimeMillis))
-    ;(dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
-    ;(println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds");
-
-  ;  (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
-  ;  (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
-
-    ;(let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
-    ;      summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
-    ;  (println (int (/ summary-space 1000000)) "Mb of space was used")
-    ;  (is (< (.size get-chunk-store) (* summary-space 1.5))))
-
-    ))
+    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
+      (println (int (/ summary-space 1000000)) "Mb of space was used")
+      (is (< (.size get-chunk-store) (* summary-space 1.5))))))
 

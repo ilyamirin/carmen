@@ -8,10 +8,14 @@
 
 ;;storage operations
 
-;;TODO: switch to atoms (one atom per storage)
-;;TODO: add multy storage support
-;;TODO: ciphering
+;;TODO: fix the test
+;TODO: add random buffer generator
 ;;TODO: add logger
+;;TODO: make storage configurable
+;;TODO: switch to atoms (one atom per storage)?
+;;TODO: add multy storage support
+;;TODO: add config
+;;TODO: ciphering
 ;;TODO: large keys?
 ;;TODO: exceptions processing
 
@@ -23,7 +27,7 @@
 (defn- append-chunk [key chunk-body]
   (locking get-chunk-store
     (let [position (.size get-chunk-store)
-          chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
+          chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body) :cell-size (.capacity chunk-body)}
           buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
       (while (.hasRemaining buffer)
         (.write get-chunk-store buffer position))
@@ -33,9 +37,9 @@
 (defn- overwrite-chunk [key chunk-body free-cell]
   (let [free-key (first free-cell)
         position (:position (second free-cell))
-        chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body)}
+        free-cell-size (:cell-size (second free-cell))
+        chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body) :cell-size free-cell-size}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
-    (println position)
     (locking get-chunk-store
       (while (.hasRemaining buffer)
         (.write get-chunk-store buffer position)))
@@ -92,18 +96,15 @@
       (put-to-free key-buffer chunk-meta))
     chunk-meta))
 
-;;TODO: parallel test
 (defn load-whole-existed-storage []
   (locking get-chunk-store
     (loop [position 0]
-      (println position)
-      (if (= (rem (count @index) 100) 0) (println (count @index) " chunks were loaded."))
+      (if (= (rem (count @index) 100) 0) (println (count @index) "chunks were loaded."))
       (if (>= position (.size get-chunk-store))
         true
         (recur
           (+ position
-            (:size
-              (load-existed-chunk-key
+            (:cell-size (load-existed-chunk-key
                 (load-existed-chunk-meta position)))
             (:chunk-position-offset constants)))))))
 

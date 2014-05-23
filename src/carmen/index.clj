@@ -36,13 +36,14 @@
   (dosync
     (alter free-cells-registry assoc (hash-buffer key) value)))
 
-(defn- find-the-least-applicable-cell [min-size registry]
+;;TODO make this finding more intellectual
+(defn- find-first-applicable-cell [min-size registry]
   (first (filter #(>= (:size (get % 1)) min-size) registry)))
 
 (defn acquire-free-cell [min-size]
   (dosync
-   (let [free-cell (find-the-least-applicable-cell min-size @free-cells-registry)]
-     (if-not (nil? free-cell)
+    (let [free-cell (find-first-applicable-cell min-size @free-cells-registry)]
+      (if-not (nil? free-cell)
       (let [key-hash (first free-cell)
             chunk-meta (second free-cell)]
          (alter free-cells-registry dissoc key-hash)
