@@ -14,7 +14,8 @@
 ;;TODO: exceptions processing
 ;;TODO: add multy storage support
 
-(def get-chunk-store (.getChannel (new RandomAccessFile "/tmp/storage.bin" "rw")))
+;;TODO: add setter and getter
+(def get-chunk-store (.getChannel (RandomAccessFile. "/tmp/storage.bin" "rw")))
 
 (defn reset-chunk-store []
   (.truncate get-chunk-store 0))
@@ -76,12 +77,12 @@
 
 ;;existed storage processing
 
-(defn load-existed-chunk-meta [position]
+(defn- load-existed-chunk-meta [position]
   (let [meta-buffer (create-buffer (:size-of-meta constants))]
     (.read get-chunk-store (.clear meta-buffer) position)
     (buffer-to-meta meta-buffer)))
 
-(defn load-existed-chunk-key [chunk-meta]
+(defn- load-existed-chunk-key [chunk-meta]
   (let [key-buffer (create-buffer (:size-of-key constants))
         position (+ (:position chunk-meta) (:size-of-meta constants))]
     (.read get-chunk-store (.clear key-buffer) position)
@@ -90,6 +91,7 @@
       (put-to-free key-buffer chunk-meta))
     chunk-meta))
 
+;;TODO: parallel test
 (defn load-whole-existed-storage []
   (loop [position 0]
     (if (>= position (.size get-chunk-store))
@@ -103,5 +105,7 @@
 ;;TODO compressor function
 (defn compress-storage [] 
   )
+
+;;TODO: drain
 
 ;;TODO web server

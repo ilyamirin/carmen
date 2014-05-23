@@ -2,72 +2,7 @@
   (:require [clojure.test :refer :all]
             [carmen.tools :refer :all]
             [carmen.index :refer :all]
-            [carmen.core :refer :all])
-  (:import [java.util.concurrent Executors]))
-
-(deftest index-basic-operations-test
-  (testing "Single threaded index operations testing."
-    (clean-indexes )
-    (let [key (-> (create-buffer (:size-of-key constants)) (.clear ) (.putInt (rand-int 65536)))
-        chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}
-        index-entry {(hash-buffer key) chunk-meta}]
-      (is (= (put-to-index key chunk-meta) index-entry))
-      (is (and (= @index index-entry) (= @locked-free-cells-registry @free-cells-registry {} )))
-
-      (is (= (index-contains-key? key) true))
-      (is (and (= @index index-entry) (= @locked-free-cells-registry @free-cells-registry {} )))
-
-      (is (= (get-from-index key) chunk-meta))
-      (is (and (= @index index-entry) (= @locked-free-cells-registry @free-cells-registry {} )))
-
-      (move-from-index-to-free key)
-      (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
-
-      (is (= (acquire-free-cell (+ (:size chunk-meta) 1)) nil))
-      (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry)))
-
-      (let [free-cell (acquire-free-cell (:size chunk-meta))]
-        (is (= (first free-cell) (hash-buffer key)))
-        (is (= (second free-cell) chunk-meta))
-        (is (and (= @index @free-cells-registry {}) (= @locked-free-cells-registry index-entry)))
-
-        (finalize-free-cell (hash-buffer key))
-        (is (and (= @index @free-cells-registry @locked-free-cells-registry {}))))
-
-      (put-to-free key chunk-meta)
-      (is (and (= @index @locked-free-cells-registry {}) (= @free-cells-registry index-entry))))))
-
-;TODO make it really breakes the test
-(defn concurrent-index-test-atom []
-  (let [key (-> (create-buffer (:size-of-key constants)) (.clear ) (.putInt (rand-int 65536)))
-        chunk-meta {:position (rand-int 65536) :size (rand-int 65536)}]    
-    (is (not= (put-to-index key chunk-meta) nil))
-    (is (= (index-contains-key? key) true))
-    (is (= (get-from-index key) chunk-meta))
-
-    (move-from-index-to-free key)
-    (is (not= (index-contains-key? key) true))
-    (is (not= (get-from-index key) chunk-meta))
-
-    (is (not= (acquire-free-cell 1) nil))
-    (is (= (index-contains-key? key) false))
-    (is (= (get-from-index key) nil))
-
-    (finalize-free-cell (hash-buffer key))
-    (is (= (index-contains-key? key) false))
-    (is (= (get-from-index key) nil))))
-
-(deftest concurrent-index-basic-operations-test
-  (testing "Multy threaded index operations testing."
-    (clean-indexes )
-    (reset-chunk-store )
-
-    (let [max-threads 10
-          pool (Executors/newFixedThreadPool max-threads)
-          tasks (vec (repeat max-threads concurrent-index-test-atom))]
-      (doseq [future (.invokeAll pool tasks)]
-        (.get future))
-      (.shutdown pool))))
+            [carmen.core :refer :all]))
 
 ;TODO: test b functions results
 (deftest chunk-business-operations-test
@@ -104,7 +39,6 @@
           
       (clean-indexes)
       (is (= @index @free-cells-registry @locked-free-cells-registry {}))
-      (is (load-existed-chunk-key (load-existed-chunk-meta 0)) key1)
 
       (clean-indexes)      
       (is (load-whole-existed-storage ))
@@ -119,17 +53,10 @@
     (clean-indexes )
     (reset-chunk-store )
 
-    (def keys-to-persist
-      (ref
-        (vec
-          (repeat 10
-            (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))))))
-
     (def chunks (ref {}))
     (def removed-chunks (ref {}))
 
     ;TODO: fill and check the whole chunk
-    ;TODO: use separate arrays for keys and chunks
     (defn one-operation-quad []
       (let [key (-> (create-buffer 16) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))
             chunk-body (-> (create-buffer (rand-int 65536)) (.clear ) (.putInt 0 (rand-int Integer/MAX_VALUE)))]
@@ -152,22 +79,15 @@
       (println "One testing thread has finished at" (System/currentTimeMillis)))
 
     (def start (System/currentTimeMillis))
-    (doall (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+    (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
     (println (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds")
 
-    (doall (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks)))
-    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+    (doall
+      (map #(is (= (get-chunk %) (get @chunks %))) (keys @chunks))
+      (map #(is (not (get-chunk %))) (keys @removed-chunks)))
 
     (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
           summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
       (println (int (/ summary-space 1000000)) "Mb of space was used")
       (is (< (.size get-chunk-store) (* summary-space 1.5))))))
 
-(deftest buffer-to-chunk-meta-test
-  (testing "Test deserializing buffer to chunk meta map"
-    (-> (create-buffer (:size-of-meta constants))
-      (.put 0 Byte/MAX_VALUE)
-      (.putLong 1 65549)
-      (.putInt 9 256)
-      (buffer-to-meta)
-      (is {:status 127, :position 65549, :size 256}))))
