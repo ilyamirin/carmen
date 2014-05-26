@@ -11,12 +11,15 @@
 ;;TODO: fix the test
 ;TODO: add random buffer generator
 ;;TODO: add logger
+;;TODO: move to FChannal locks
+;; http://www.java2s.com/Code/Java/File-Input-Output/DemonstratesfilelockingandsimplefilereadandwriteoperationsusingjavaniochannelsFileChannel.htm
 ;;TODO: make storage configurable
 ;;TODO: switch to atoms (one atom per storage)?
 ;;TODO: add multy storage support
 ;;TODO: add config
 ;;TODO: ciphering
 ;;TODO: large keys?
+;;TODO: add checksums
 ;;TODO: exceptions processing
 
 (def get-chunk-store (.getChannel (RandomAccessFile. "./storage.bin" "rw")))

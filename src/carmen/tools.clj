@@ -9,15 +9,16 @@
 (defn create-buffer [capacity]
   (ByteBuffer/allocate capacity))
 
+(defn create-and-fill-buffer [capacity]
+  (let [array (byte-array capacity)]
+    (.nextBytes (java.util.Random.) array)
+    (ByteBuffer/wrap array)))
+
 (defn buffer-to-seq [buffer]
   (map #(.get (.rewind buffer) %) (range 0 (.capacity buffer))))
 
 (defn hash-buffer [buffer]
   (-> buffer (.rewind) (.hashCode)))
-
-(defn wrap-buffers [& buffers]
-  (let [buffer-size (reduce #(+ %1 (.capacity %2)) 0 buffers)]
-    (reduce #(.put %1 (.rewind %2)) (.clear (create-buffer buffer-size)) buffers)))
 
 (defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
   (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
