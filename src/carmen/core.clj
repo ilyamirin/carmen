@@ -8,13 +8,8 @@
 
 ;;storage operations
 
-;;TODO: fix the test
-;TODO: add random buffer generator
 ;;TODO: add logger
-;;TODO: move to FChannal locks
-;; http://www.java2s.com/Code/Java/File-Input-Output/DemonstratesfilelockingandsimplefilereadandwriteoperationsusingjavaniochannelsFileChannel.htm
 ;;TODO: make storage configurable
-;;TODO: switch to atoms (one atom per storage)?
 ;;TODO: add multy storage support
 ;;TODO: add config
 ;;TODO: ciphering
@@ -30,7 +25,10 @@
 (defn- append-chunk [key chunk-body]
   (locking get-chunk-store
     (let [position (.size get-chunk-store)
-          chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body) :cell-size (.capacity chunk-body)}
+          chunk-meta {:status Byte/MAX_VALUE
+                      :position position
+                      :size (.capacity chunk-body)
+                      :cell-size (.capacity chunk-body)}
           buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
       (while (.hasRemaining buffer)
         (.write get-chunk-store buffer position))
@@ -41,7 +39,10 @@
   (let [free-key (first free-cell)
         position (:position (second free-cell))
         free-cell-size (:cell-size (second free-cell))
-        chunk-meta {:status Byte/MAX_VALUE :position position :size (.capacity chunk-body) :cell-size free-cell-size}
+        chunk-meta {:status Byte/MAX_VALUE
+                    :position position
+                    :size (.capacity chunk-body)
+                    :cell-size free-cell-size}
         buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
     (locking get-chunk-store
       (while (.hasRemaining buffer)

@@ -48,7 +48,7 @@
        (is (= (hash-buffer get-chunk-result) (hash-buffer chunk-body1)))
        (is (= (.getInt (.rewind get-chunk-result) 0) (.getInt (.rewind chunk-body1) 0)))))))
 
-(deftest chunk-business-operations-test
+(deftest concurrent-chunk-business-operations-test
   (testing "Concurrent test of chunks persist/read/remove operations."
     (clean-indexes )
     (reset-chunk-store )
@@ -102,7 +102,7 @@
 
     (let [start (System/currentTimeMillis)
           old-count (count @chunks)]
-      (dorun (pvalues (repeated-quad 10000) (repeated-quad 10000) (repeated-quad 10000)))
+      (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
       (println (- (count @chunks) old-count) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
     (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
