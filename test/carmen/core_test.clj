@@ -102,7 +102,7 @@
 
     (let [start (System/currentTimeMillis)
           old-count (count @chunks)]
-      (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+      (dorun (pvalues (repeated-quad 10000) (repeated-quad 10000) (repeated-quad 10000)))
       (println (- (count @chunks) old-count) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
     (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
