@@ -3,6 +3,7 @@
 
 ;;indexing
 
+;TODO: make it as type
 ;;TODO: optimize finding by size
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)

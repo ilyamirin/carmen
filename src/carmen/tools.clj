@@ -1,5 +1,7 @@
 (ns carmen.tools
-  (:import [java.nio ByteBuffer]))
+  (:import [java.nio ByteBuffer]
+           [java.io RandomAccessFile]))
+
 
 (def constants {:size-of-meta 17 :size-of-key 16 :chunk-position-offset 33})
 
@@ -42,3 +44,5 @@
    :size (.getInt buffer 9)
    :cell-size (.getInt buffer 13)})
 
+(defn get-channel-of-file [filepath]
+  (.getChannel (RandomAccessFile. filepath "rw")))

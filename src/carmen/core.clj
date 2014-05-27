@@ -8,9 +8,9 @@
 
 ;;storage operations
 
-;;TODO: add logger
 ;;TODO: make storage configurable
 ;;TODO: add multy storage support
+;;TODO: add logger
 ;;TODO: add config
 ;;TODO: ciphering
 ;;TODO: large keys?
