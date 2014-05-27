@@ -8,49 +8,62 @@
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)
 
-(def index (ref {}))
-(def free-cells-registry (ref {}))
-(def locked-free-cells-registry (ref {}))
-
-(defn clean-indexes []
-  (dosync
-   (doall
-     (map #(ref-set % {}) [index free-cells-registry locked-free-cells-registry]))))
-
-(defn put-to-index [key value]
-  (dosync
-   (alter index assoc (hash-buffer key) value)))
-
-(defn index-contains-key? [key]
-  (contains? @index (hash-buffer key)))
-
-(defn get-from-index [key]
-  (get @index (hash-buffer key)))
-
-(defn move-from-index-to-free [key]
-  (dosync
-   (let [key-hash (hash-buffer key)]
-     (alter free-cells-registry assoc key-hash (get @index key-hash))
-     (alter index dissoc key-hash))))
-
-(defn put-to-free [key value]
-  (dosync
-    (alter free-cells-registry assoc (hash-buffer key) value)))
-
 ;;TODO make this finding more intellectual
 (defn- find-first-applicable-cell [min-size registry]
   (first (filter #(>= (:size (get % 1)) min-size) registry)))
 
-(defn acquire-free-cell [min-size]
-  (dosync
-    (let [free-cell (find-first-applicable-cell min-size @free-cells-registry)]
-      (if-not (nil? free-cell)
-      (let [key-hash (first free-cell)
-            chunk-meta (second free-cell)]
-         (alter free-cells-registry dissoc key-hash)
-         (alter locked-free-cells-registry assoc key-hash chunk-meta)
-         free-cell)))))
+(defprotocol PHandMemory
+  (clean-index [this])
+  (put-to-index [this key value])
+  (index-contains-key? [this key])
+  (get-from-index [this key])
+  (move-from-index-to-free [this key])
+  (put-to-free [this key value])
+  (acquire-free-cell [this min-size])
+  (finalize-free-cell [this free-key]))
 
-(defn finalize-free-cell [free-key]
-  (dosync
-    (alter locked-free-cells-registry dissoc free-key)))
+(deftype HandMemory [^clojure.lang.Ref index
+                     ^clojure.lang.Ref free-cells
+                     ^clojure.lang.Ref acquired-cells]
+  PHandMemory
+  (clean-index [this]
+    (dosync
+      (doall
+        (map #(ref-set % {}) [index free-cells acquired-cells]))))
+
+  (put-to-index [this key value]
+    (dosync
+      (alter index assoc (hash-buffer key) value)))
+
+  (index-contains-key? [this key]
+    (contains? @index (hash-buffer key)))
+
+  (get-from-index [this key]
+    (get @index (hash-buffer key)))
+
+  (move-from-index-to-free [this key]
+    (dosync
+      (let [key-hash (hash-buffer key)]
+        (alter free-cells assoc key-hash (get @index key-hash))
+        (alter index dissoc key-hash))))
+
+  (put-to-free [this key value]
+    (dosync
+      (alter free-cells assoc (hash-buffer key) value)))
+
+  (acquire-free-cell [this min-size]
+    (dosync
+      (let [free-cell (find-first-applicable-cell min-size @free-cells)]
+        (if-not (nil? free-cell)
+          (let [key-hash (first free-cell)
+                chunk-meta (second free-cell)]
+            (alter free-cells dissoc key-hash)
+            (alter acquired-cells assoc key-hash chunk-meta)
+            free-cell)))))
+
+  (finalize-free-cell [this key]
+    (dosync
+      (alter acquired-cells dissoc key))))
+
+(defn create-memory []
+  (HandMemory. (ref {}) (ref {}) (ref {})))

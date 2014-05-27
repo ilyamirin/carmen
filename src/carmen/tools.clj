@@ -7,6 +7,7 @@
 
 ;;tools
 
+;TODO: add defmacro for repeat operation
 ;TODO: add buffers pool
 (defn create-buffer [capacity]
   (ByteBuffer/allocate capacity))
