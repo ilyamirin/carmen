@@ -18,7 +18,7 @@
             chunk-body (create-and-fill-buffer (rand-int 65536))]
         (persist-chunk test-carmen key chunk-body)
         (is (chunks-are-equal? (get-chunk test-carmen key) chunk-body))
-        (if (> (rand) 1)
+        (if (> (rand) 0.5)
           (do
             (remove-chunk test-carmen key)
             (is (nil? (get-chunk test-carmen key)))
