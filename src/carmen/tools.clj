@@ -39,6 +39,7 @@
       (.put (.rewind chunk-body))
       (.rewind))))
 
+;;; move into Hand?
 (defn buffer-to-meta [buffer]
   {:status (.get buffer 0)
    :position (.getLong buffer 1)
@@ -48,7 +49,8 @@
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))
 
-(defn chunks-are-equal? [chunk1 chunk2]
+(defn chunks-are-equal? [^java.nio.ByteBuffer chunk1
+                         ^java.nio.ByteBuffer chunk2]
   (and
     ;(= chunk1 chunk2) ;;;how does ot work??
     (= (hash-buffer chunk1) (hash-buffer chunk2))))

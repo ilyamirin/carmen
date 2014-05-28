@@ -8,7 +8,6 @@
     (.delete (java.io.File. "/tmp/storage2.bin"))
 
     (defcarmen test-carmen "/tmp/storage2.bin")
-    ;(forget-all test-carmen)
 
     (def chunks (ref {}))
     (def removed-chunks (ref {}))
@@ -39,29 +38,28 @@
     (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
     (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
 
-   ; (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
-   ;       summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
-   ;   (println (int (/ summary-space 1000000)) "Mb of space was used")
-   ;   (is (< (.size get-chunk-store) (* summary-space 1.5))))
+    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
+      (println (int (/ summary-space 1000000)) "Mb of space was used")
+      (is (< (used-space test-carmen) (* summary-space 1.5))))
 
-;    (clean-indexes )
-;    (is (load-whole-existed-storage))
+    (forget-all test-carmen)
 
-;    (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
-;    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+    (is (>= (rescan test-carmen) (count @chunks)))
 
-;    (let [start (System/currentTimeMillis)
-;          old-count (count @chunks)]
-;      (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
-;      (println (- (count @chunks) old-count) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
+    (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
 
-;    (doall (map #(is (chunks-is-equal? (get-chunk %) (get @chunks %))) (keys @chunks)))
-;    (doall (map #(is (not (get-chunk %))) (keys @removed-chunks)))
+    (let [start (System/currentTimeMillis)
+          old-count (count @chunks)]
+      (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+      (println (- (count @chunks) old-count) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
-;    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
-;          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
-;      (println (int (/ summary-space 1000000)) "Mb of space was used")
-;      (is (< (.size get-chunk-store) (* summary-space 1.5)))
+    (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
+    (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
 
-    ))
+    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
+      (println (int (/ summary-space 1000000)) "Mb of space was used")
+      (is (< (used-space test-carmen) (* summary-space 1.5))))))
 

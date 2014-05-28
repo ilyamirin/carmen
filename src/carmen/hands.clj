@@ -11,7 +11,9 @@
   (drop-with-hand [this chunk-meta])
   (wash-hand [this])
   (compact-hand [this])
-  (hand-size [this]))
+  (hand-size [this])
+  (read-meta [this position])
+  (read-key [this chunk-meta]))
 
 (deftype Hand [channel]
   PHand
@@ -66,7 +68,21 @@
 
   (hand-size [this]
     (locking channel
-      (.size channel))))
+      (.size channel)))
+
+  ;;;be careful to directly use next two methods!
+  ;;;TODO: test next two methods
+
+  (read-meta [this position]
+    (let [meta-buffer (create-buffer (:size-of-meta constants))]
+      (.read channel (.clear meta-buffer) position)
+      (buffer-to-meta meta-buffer)))
+
+  (read-key [this chunk-meta]
+    (let [key (create-buffer (:size-of-key constants))
+          position (+ (:position chunk-meta) (:size-of-meta constants))]
+      (.read channel (.clear key) position)
+      key)))
 
 (defn create-hand [filepath]
   (Hand. (get-channel-of-file filepath)))

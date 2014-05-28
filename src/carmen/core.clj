@@ -7,7 +7,6 @@
 
 ;;storage operations
 
-;;TODO: make storage configurable
 ;;TODO: add multy storage support (Carmen proxy)
 ;;TODO: add checksums
 ;;TODO: add logger
@@ -28,7 +27,8 @@
   (remove-chunk [this key])
   (forget-all [this])
   (rescan [this])
-  (compress [this]))
+  (compress [this])
+  (used-space [this]))
 
 (deftype Carmen [^carmen.index.PHandMemory memory
                  ^carmen.hands.PHand hand]
@@ -45,45 +45,45 @@
 
   (get-chunk [this key]
     (if (index-contains-key? memory key)
-      (give-with-hand hand (get-from-index memory key))))
+      (give-with-hand hand
+        (get-from-index memory key))))
 
   (remove-chunk [this key]
     (if (index-contains-key? memory key)
-      (drop-with-hand hand key)))
+      (do
+        (drop-with-hand hand (get-from-index memory key))
+        (move-from-index-to-free memory key))))
 
   (forget-all [this]
     (clean-indexes memory))
 
+  ;;TODO: refactor this
   (rescan [this]
-    ;;;existed storage processing
-    (defn- load-existed-chunk-meta [hand position]
-      (let [meta-buffer (create-buffer (:size-of-meta constants))]
-        (.read hand (.clear meta-buffer) position)
-        (buffer-to-meta meta-buffer)))
-
-    (defn- load-existed-chunk-key [hand memory chunk-meta]
-      (let [key (create-buffer (:size-of-key constants))
-            position (+ (:position chunk-meta) (:size-of-meta constants))]
-        (.read hand (.clear key) position)
+    (defn- load-existed-chunk-key [chunk-meta]
+      (let [key (read-key hand chunk-meta)]
         (if (= (:status chunk-meta) Byte/MAX_VALUE)
           (put-to-index memory key chunk-meta)
           (put-to-free memory key chunk-meta))
         chunk-meta))
 
     (locking hand
-      (loop [position 0]
-        ;(if (= (rem (count @index) 100) 0)
-        ;  (println (count @index) "chunks were loaded."))
+      (loop [position 0
+             chunks-were-loaded 0]
+        (if (= (rem chunks-were-loaded 100) 0)
+          (println chunks-were-loaded "chunks were loaded."))
         (if (>= position (hand-size hand))
-          true
+          chunks-were-loaded
           (recur
             (+ position
               (:cell-size
                 (load-existed-chunk-key
-                  (load-existed-chunk-meta position)))
-              (:chunk-position-offset constants)))))))
+                  (read-meta hand position))))
+            (inc chunks-were-loaded))))))
 
-  (compress [this] nil))
+  (compress [this] nil)
+
+  (used-space [this]
+    (hand-size hand)))
 
 (defmacro defcarmen [name path-to-storage]
   `(defonce ~name (Carmen. (create-memory ) (create-hand ~path-to-storage))))
