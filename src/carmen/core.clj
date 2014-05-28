@@ -8,13 +8,12 @@
 ;;storage operations
 
 ;;TODO: add multy storage support (Carmen proxy)
-;;TODO: add checksums
 ;;TODO: add logger
-;;TODO: add config
+;;TODO: improve finding of chunk cell for overwriting
 ;;TODO: compressor function
+;;TODO: add checksums
 ;;TODO: ciphering
 ;;TODO: large keys?
-;;TODO: add checksums
 ;;TODO: exceptions processing
 ;;TODO: drain function
 ;;TODO: web server
@@ -87,3 +86,13 @@
 
 (defmacro defcarmen [name path-to-storage]
   `(defonce ~name (Carmen. (create-memory ) (create-hand ~path-to-storage))))
+
+(deftype CarmenProxy [proxy-list]
+  PCarmen
+  (persist-chunk [this key chunk-body] nil)
+  (get-chunk [this key] nil)
+  (remove-chunk [this key] nil)
+  (forget-all [this] nil)
+  (rescan [this] nil)
+  (compress [this] nil)
+  (used-space [this] nil))
