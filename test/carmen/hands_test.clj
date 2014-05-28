@@ -5,7 +5,7 @@
 
 (deftest read-write-remove-hand-test
   (testing "Test read/write/remove operations with a help of Hand."
-    (defhand test-hand "./test_store.bin")
+    (defonce test-hand (create-hand "./test_store.bin"))
 
     (wash-hand test-hand)
     (is (zero? (hand-size test-hand)))

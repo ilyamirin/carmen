@@ -1,121 +1,89 @@
 (ns carmen.core
   (:use [carmen.tools]
-        [carmen.index])
-  (:import    
-    [java.io RandomAccessFile]))
+        [carmen.hands]
+        [carmen.index]))
 
 ;;TODO add descriptions and README
 
 ;;storage operations
 
 ;;TODO: make storage configurable
-;;TODO: add multy storage support
+;;TODO: add multy storage support (Carmen proxy)
+;;TODO: add checksums
 ;;TODO: add logger
 ;;TODO: add config
+;;TODO: compressor function
 ;;TODO: ciphering
 ;;TODO: large keys?
 ;;TODO: add checksums
 ;;TODO: exceptions processing
-
-(def get-chunk-store (.getChannel (RandomAccessFile. "./storage.bin" "rw")))
-
-(defn reset-chunk-store []
-  (.truncate get-chunk-store 0))
-
-(defn- append-chunk [key chunk-body]
-  (locking get-chunk-store
-    (let [position (.size get-chunk-store)
-          chunk-meta {:status Byte/MAX_VALUE
-                      :position position
-                      :size (.capacity chunk-body)
-                      :cell-size (.capacity chunk-body)}
-          buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
-      (while (.hasRemaining buffer)
-        (.write get-chunk-store buffer position))
-      (put-to-index key chunk-meta)
-      chunk-meta)))
-
-(defn- overwrite-chunk [key chunk-body free-cell]
-  (let [free-key (first free-cell)
-        position (:position (second free-cell))
-        free-cell-size (:cell-size (second free-cell))
-        chunk-meta {:status Byte/MAX_VALUE
-                    :position position
-                    :size (.capacity chunk-body)
-                    :cell-size free-cell-size}
-        buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
-    (locking get-chunk-store
-      (while (.hasRemaining buffer)
-        (.write get-chunk-store buffer position)))
-    (put-to-index key chunk-meta)
-    (finalize-free-cell free-key)))
-
-(defn- read-chunk [key]
-  (let [chunk-meta (get-from-index key)
-        chunk-body (.clear (create-buffer (:size chunk-meta)))
-        chunk-position (+ (:position chunk-meta) (:chunk-position-offset constants))]
-    (locking get-chunk-store
-      (while (.hasRemaining chunk-body)
-        (.read get-chunk-store chunk-body chunk-position)))
-    (.rewind chunk-body)))
-
-(defn- kill-chunk [key]
-  (let [position (:position (get-from-index key))
-        buffer (.rewind (.put (create-buffer 1) 0 Byte/MIN_VALUE))]
-    (locking get-chunk-store
-      (while (.hasRemaining buffer)
-        (.write get-chunk-store buffer position))))
-  (move-from-index-to-free key))
-
-;;business methods
-
-(defn persist-chunk [key chunk-body]
-  (if-not (index-contains-key? key)
-    (let [free-cell (acquire-free-cell (.capacity chunk-body))]
-      (if-not (nil? free-cell)
-        (overwrite-chunk key chunk-body free-cell)
-        (append-chunk key chunk-body)))
-    (get-from-index key)))
-
-(defn get-chunk [key]
-  (if (index-contains-key? key)
-    (read-chunk key)))
-
-(defn remove-chunk [key]
-  (if (index-contains-key? key) (kill-chunk key)))
-
-;;existed storage processing
-
-(defn- load-existed-chunk-meta [position]
-  (let [meta-buffer (create-buffer (:size-of-meta constants))]
-    (.read get-chunk-store (.clear meta-buffer) position)
-    (buffer-to-meta meta-buffer)))
-
-(defn- load-existed-chunk-key [chunk-meta]
-  (let [key-buffer (create-buffer (:size-of-key constants))
-        position (+ (:position chunk-meta) (:size-of-meta constants))]
-    (.read get-chunk-store (.clear key-buffer) position)
-    (if (= (:status chunk-meta) Byte/MAX_VALUE)
-      (put-to-index key-buffer chunk-meta)
-      (put-to-free key-buffer chunk-meta))
-    chunk-meta))
-
-(defn load-whole-existed-storage []
-  (locking get-chunk-store
-    (loop [position 0]
-      (if (= (rem (count @index) 100) 0) (println (count @index) "chunks were loaded."))
-      (if (>= position (.size get-chunk-store))
-        true
-        (recur
-          (+ position
-            (:cell-size (load-existed-chunk-key
-                (load-existed-chunk-meta position)))
-            (:chunk-position-offset constants)))))))
-
-;;TODO compressor function
-(defn compress-storage [] 
-  )
-
 ;;TODO: drain function
+;;TODO: web server
 
-;;TODO web server
+;;business protocols
+
+(defprotocol PCarmen
+  (persist-chunk [this key chunk-body])
+  (get-chunk [this key])
+  (remove-chunk [this key])
+  (forget-all [this])
+  (rescan [this])
+  (compress [this]))
+
+(deftype Carmen [^carmen.index.PHandMemory memory
+                 ^carmen.hands.PHand hand]
+  PCarmen
+  (persist-chunk [this key chunk-body]
+    (if-not (index-contains-key? memory key)
+      (let [free-meta (acquire-free memory (.capacity chunk-body))]
+        (put-to-index memory
+          key
+          (if-not (nil? free-meta)
+            (retake-in-hand hand key chunk-body free-meta) ;;;mb return meta to free if smthg goes wrong?
+            (take-in-hand hand key chunk-body))))
+      (get-from-index memory key)))
+
+  (get-chunk [this key]
+    (if (index-contains-key? memory key)
+      (give-with-hand hand (get-from-index memory key))))
+
+  (remove-chunk [this key]
+    (if (index-contains-key? memory key)
+      (drop-with-hand hand key)))
+
+  (forget-all [this]
+    (clean-indexes memory))
+
+  (rescan [this]
+    ;;;existed storage processing
+    (defn- load-existed-chunk-meta [hand position]
+      (let [meta-buffer (create-buffer (:size-of-meta constants))]
+        (.read hand (.clear meta-buffer) position)
+        (buffer-to-meta meta-buffer)))
+
+    (defn- load-existed-chunk-key [hand memory chunk-meta]
+      (let [key (create-buffer (:size-of-key constants))
+            position (+ (:position chunk-meta) (:size-of-meta constants))]
+        (.read hand (.clear key) position)
+        (if (= (:status chunk-meta) Byte/MAX_VALUE)
+          (put-to-index memory key chunk-meta)
+          (put-to-free memory key chunk-meta))
+        chunk-meta))
+
+    (locking hand
+      (loop [position 0]
+        ;(if (= (rem (count @index) 100) 0)
+        ;  (println (count @index) "chunks were loaded."))
+        (if (>= position (hand-size hand))
+          true
+          (recur
+            (+ position
+              (:cell-size
+                (load-existed-chunk-key
+                  (load-existed-chunk-meta position)))
+              (:chunk-position-offset constants)))))))
+
+  (compress [this] nil))
+
+(defmacro defcarmen [name path-to-storage]
+  `(defonce ~name (Carmen. (create-memory ) (create-hand ~path-to-storage))))

@@ -47,3 +47,8 @@
 
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))
+
+(defn chunks-are-equal? [chunk1 chunk2]
+  (and
+    ;(= chunk1 chunk2) ;;;how does ot work??
+    (= (hash-buffer chunk1) (hash-buffer chunk2))))

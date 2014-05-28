@@ -4,7 +4,7 @@
 ;TODO: try to FChannel lock hand file
 ;TODO: add checksum to every cell
 
-(defprotocol Handly
+(defprotocol PHand
   (take-in-hand [this key chunk-body])
   (retake-in-hand [this key chunk-body chunk-meta])
   (give-with-hand [this chunk-meta])
@@ -14,7 +14,7 @@
   (hand-size [this]))
 
 (deftype Hand [channel]
-  Handly
+  PHand
   (take-in-hand [this key chunk-body]
     (locking channel
       (let [position (.size channel)
@@ -68,5 +68,5 @@
     (locking channel
       (.size channel))))
 
-(defmacro defhand [handname filepath]
-  `(defonce ~handname (Hand. (get-channel-of-file ~filepath))))
+(defn create-hand [filepath]
+  (Hand. (get-channel-of-file filepath)))

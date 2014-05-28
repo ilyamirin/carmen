@@ -13,23 +13,21 @@
   (first (filter #(>= (:size (get % 1)) min-size) registry)))
 
 (defprotocol PHandMemory
-  (clean-index [this])
+  (clean-indexes [this])
   (put-to-index [this key value])
   (index-contains-key? [this key])
   (get-from-index [this key])
   (move-from-index-to-free [this key])
   (put-to-free [this key value])
-  (acquire-free-cell [this min-size])
-  (finalize-free-cell [this free-key]))
+  (acquire-free [this min-size]))
 
 (deftype HandMemory [^clojure.lang.Ref index
-                     ^clojure.lang.Ref free-cells
-                     ^clojure.lang.Ref acquired-cells]
+                     ^clojure.lang.Ref free-cells]
   PHandMemory
-  (clean-index [this]
+  (clean-indexes [this]
     (dosync
       (doall
-        (map #(ref-set % {}) [index free-cells acquired-cells]))))
+        (map #(ref-set % {}) [index free-cells]))))
 
   (put-to-index [this key value]
     (dosync
@@ -51,19 +49,14 @@
     (dosync
       (alter free-cells assoc (hash-buffer key) value)))
 
-  (acquire-free-cell [this min-size]
+  (acquire-free [this min-size]
     (dosync
       (let [free-cell (find-first-applicable-cell min-size @free-cells)]
         (if-not (nil? free-cell)
           (let [key-hash (first free-cell)
                 chunk-meta (second free-cell)]
             (alter free-cells dissoc key-hash)
-            (alter acquired-cells assoc key-hash chunk-meta)
-            free-cell)))))
-
-  (finalize-free-cell [this key]
-    (dosync
-      (alter acquired-cells dissoc key))))
+            chunk-meta))))))
 
 (defn create-memory []
-  (HandMemory. (ref {}) (ref {}) (ref {})))
+  (HandMemory. (ref {}) (ref {})))
