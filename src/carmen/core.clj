@@ -7,9 +7,8 @@
 
 ;;storage operations
 
-;;TODO: add multy storage support (Carmen proxy)
 ;;TODO: add logger
-;;TODO: improve finding of chunk cell for overwriting
+;;TODO: improve finding of chunk cell for overwriting and make it configurable
 ;;TODO: compressor function
 ;;TODO: add checksums
 ;;TODO: ciphering
@@ -20,7 +19,7 @@
 
 ;;business protocols
 
-(defprotocol PCarmen
+(defprotocol PStore
   (persist-chunk [this key chunk-body])
   (get-chunk [this key])
   (remove-chunk [this key])
@@ -29,9 +28,9 @@
   (compress [this])
   (used-space [this]))
 
-(deftype Carmen [^carmen.index.PHandMemory memory
-                 ^carmen.hands.PHand hand]
-  PCarmen
+(deftype Store [^carmen.index.PHandMemory memory
+                ^carmen.hands.PHand hand]
+  PStore
   (persist-chunk [this key chunk-body]
     (if-not (index-contains-key? memory key)
       (let [free-meta (acquire-free memory (.capacity chunk-body))]
@@ -84,12 +83,18 @@
   (used-space [this]
     (hand-size hand)))
 
-(defmacro defcarmen [name path-to-storage]
-  `(defonce ~name (Carmen. (create-memory ) (create-hand ~path-to-storage))))
+(defmacro defstore [name path-to-storage]
+  `(defonce ~name (Store. (create-memory) (create-hand ~path-to-storage))))
 
-(deftype CarmenProxy [proxy-list]
-  PCarmen
-  (persist-chunk [this key chunk-body] nil)
+(deftype StoreProxy [proxy-list consistency]
+  PStore
+  (persist-chunk [this key chunk-body]
+    (let [lazy-result (map #(persist-chunk % key chunk-body) proxy-list)]
+      (case consistency
+        :one (drop-while false? lazy-result)
+        :quorum ()
+        :all ())))
+
   (get-chunk [this key] nil)
   (remove-chunk [this key] nil)
   (forget-all [this] nil)

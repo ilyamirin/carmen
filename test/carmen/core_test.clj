@@ -7,7 +7,7 @@
   (testing "Concurrent test of chunks persist/read/remove operations."
     (.delete (java.io.File. "/tmp/storage2.bin"))
 
-    (defcarmen test-carmen "/tmp/storage2.bin")
+    (defstore test-carmen "/tmp/storage2.bin")
 
     (def chunks (ref {}))
     (def removed-chunks (ref {}))

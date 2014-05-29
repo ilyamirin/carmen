@@ -2,7 +2,6 @@
   (:import [java.nio ByteBuffer]
            [java.io RandomAccessFile]))
 
-
 (def constants {:size-of-meta 17 :size-of-key 16 :chunk-position-offset 33})
 
 ;;tools
@@ -49,8 +48,15 @@
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))
 
-(defn chunks-are-equal? [^java.nio.ByteBuffer chunk1
-                         ^java.nio.ByteBuffer chunk2]
-  (and
-    ;(= chunk1 chunk2) ;;;how does ot work??
-    (= (hash-buffer chunk1) (hash-buffer chunk2))))
+(defn chunks-are-equal? [^java.nio.ByteBuffer chunk1 ^java.nio.ByteBuffer chunk2]
+  (= (hash-buffer chunk1) (hash-buffer chunk2)))
+
+;;TODO: throw exception if unknown consistency was got
+(defmacro apply-consistently [consistency fname coll & args]
+  `(let [result# (doall (map #(~fname % ~@args) ~coll))]
+     (case ~consistency
+       :one (not= true (every? false? result#))
+       :quorum (let [quorum# (+ (bit-shift-right (count ~coll) 1) 1)]
+                 (<= quorum#
+                   (reduce #(if (true? %2) (inc %1) %1) 0 result#)))
+       :all (every? true? result#))))
