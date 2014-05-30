@@ -1,4 +1,5 @@
 (ns carmen.tools
+  (:require [taoensso.timbre :as timbre])
   (:import [java.nio ByteBuffer]
            [java.io RandomAccessFile]))
 
@@ -6,7 +7,6 @@
 
 ;;tools
 
-;TODO: add defmacro for repeat operation
 ;TODO: add buffers pool
 (defn create-buffer [capacity]
   (ByteBuffer/allocate capacity))
@@ -52,6 +52,7 @@
   (= (hash-buffer chunk1) (hash-buffer chunk2)))
 
 ;;TODO: throw exception if unknown consistency was got
+;;TODO: quorum must return before all operations would complete
 (defmacro apply-consistently [consistency fname coll & args]
   `(let [result# (doall (map #(~fname % ~@args) ~coll))]
      (case ~consistency

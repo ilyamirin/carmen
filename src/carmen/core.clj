@@ -1,4 +1,5 @@
 (ns carmen.core
+  (:require [taoensso.timbre :as timbre])
   (:use [carmen.tools]
         [carmen.hands]
         [carmen.index]))
@@ -7,13 +8,13 @@
 
 ;;storage operations
 
-;;TODO: add logger
 ;;TODO: improve finding of chunk cell for overwriting and make it configurable
+;;TODO: exceptions processing in Store
 ;;TODO: compressor function
 ;;TODO: add checksums
 ;;TODO: ciphering
-;;TODO: large keys?
-;;TODO: exceptions processing
+;;TODO: Bloom filter
+;;TODO: birthday paradox problem (large keys?)
 ;;TODO: drain function
 ;;TODO: web server
 
@@ -68,7 +69,7 @@
       (loop [position 0
              chunks-were-loaded 0]
         (if (= (rem chunks-were-loaded 100) 0)
-          (println chunks-were-loaded "chunks were loaded."))
+          (timbre/info chunks-were-loaded "chunks were loaded."))
         (if (>= position (hand-size hand))
           chunks-were-loaded
           (recur

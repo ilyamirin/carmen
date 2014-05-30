@@ -1,4 +1,5 @@
 (ns carmen.hands
+  (:require [taoensso.timbre :as timbre])
   (:use [carmen.tools]))
 
 ;TODO: try to FChannel lock hand file

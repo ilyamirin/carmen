@@ -1,12 +1,8 @@
 (ns carmen.index
+  (:require [taoensso.timbre :as timbre])
   (:use [carmen.tools]))
 
 ;;indexing
-
-;TODO: make it as type
-;;TODO: optimize finding by size
-;;TODO: Bloom filter
-;;TODO: birthday paradox problem (large keys?)
 
 ;;TODO make this finding more intellectual
 (defn- find-first-applicable-cell [min-size registry]
