@@ -8,8 +8,8 @@
 
 ;;storage operations
 
-;;TODO: improve finding of chunk cell for overwriting and make it configurable
 ;;TODO: exceptions processing in Store
+;;TODO: add stats
 ;;TODO: compressor function
 ;;TODO: add checksums
 ;;TODO: ciphering
@@ -86,19 +86,3 @@
 
 (defmacro defstore [name path-to-storage]
   `(defonce ~name (Store. (create-memory) (create-hand ~path-to-storage))))
-
-(deftype StoreProxy [proxy-list consistency]
-  PStore
-  (persist-chunk [this key chunk-body]
-    (let [lazy-result (map #(persist-chunk % key chunk-body) proxy-list)]
-      (case consistency
-        :one (drop-while false? lazy-result)
-        :quorum ()
-        :all ())))
-
-  (get-chunk [this key] nil)
-  (remove-chunk [this key] nil)
-  (forget-all [this] nil)
-  (rescan [this] nil)
-  (compress [this] nil)
-  (used-space [this] nil))

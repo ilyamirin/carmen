@@ -4,9 +4,10 @@
 
 ;;indexing
 
-;;TODO make this finding more intellectual
 (defn- find-first-applicable-cell [min-size registry]
-  (first (filter #(>= (:size (get % 1)) min-size) registry)))
+  (let [applicable-size (* min-size 1.5)]
+    (first
+      (filter #(>= (:size (get % 1)) applicable-size) registry))))
 
 (defprotocol PHandMemory
   (clean-indexes [this])
