@@ -3,11 +3,10 @@
   (:use [carmen.tools]))
 
 ;TODO: try to FChannel lock hand file
-;TODO: add checksum to every cell
 
 (defprotocol PHand
-  (take-in-hand [this key chunk-body])
-  (retake-in-hand [this key chunk-body chunk-meta])
+  (take-in-hand [this key chunk-body ttl] [this key chunk-body])
+  (retake-in-hand [this key chunk-body ttl chunk-meta] [this key chunk-body chunk-meta])
   (give-with-hand [this chunk-meta])
   (drop-with-hand [this chunk-meta])
   (wash-hand [this])
@@ -17,31 +16,43 @@
   (read-key [this chunk-meta]))
 
 (deftype Hand [channel]
+
   PHand
-  (take-in-hand [this key chunk-body]
+
+  (take-in-hand [this key chunk-body ttl]
     (locking channel
       (let [position (.size channel)
             cell-size (+ (:chunk-position-offset constants) (.capacity chunk-body))
             chunk-meta {:status Byte/MAX_VALUE
                         :position position
                         :size (.capacity chunk-body)
-                        :cell-size cell-size}
+                        :cell-size cell-size
+                        :born (System/currentTimeMillis )
+                        :ttl ttl}
             buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
         (while (.hasRemaining buffer)
           (.write channel buffer position))
         chunk-meta)))
 
-  (retake-in-hand [this key chunk-body chunk-meta]
+  (take-in-hand [this key chunk-body]
+    (take-in-hand this key chunk-body 0))
+
+  (retake-in-hand [this key chunk-body ttl chunk-meta]
     (let [position (:position chunk-meta)
           new-chunk-meta {:status Byte/MAX_VALUE
                           :position position
                           :size (.capacity chunk-body)
-                          :cell-size (:cell-size chunk-meta)}
+                          :cell-size (:cell-size chunk-meta)
+                          :born (System/currentTimeMillis )
+                          :ttl ttl}
           buffer (wrap-key-chunk-and-meta key chunk-body new-chunk-meta)]
       (locking channel
         (while (.hasRemaining buffer)
           (.write channel buffer position)))
       new-chunk-meta))
+
+  (retake-in-hand [this key chunk-body chunk-meta]
+    (retake-in-hand this key chunk-body 0 chunk-meta))
 
   (give-with-hand [this chunk-meta]
     (let [chunk-body (.clear (create-buffer (:size chunk-meta)))
