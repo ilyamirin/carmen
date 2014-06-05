@@ -3,7 +3,7 @@
   (:import [java.nio ByteBuffer]
            [java.io RandomAccessFile]))
 
-(def constants {:size-of-meta 17 :size-of-key 16 :chunk-position-offset 33})
+(def constants {:size-of-meta 29 :size-of-key 16 :chunk-position-offset 45})
 
 ;;tools
 
@@ -30,6 +30,8 @@
       (.putLong 1 (:position chunk-meta))
       (.putInt 9 (:size chunk-meta))
       (.putInt 13 (:cell-size chunk-meta))
+      (.putLong 17 (:born chunk-meta))
+      (.putInt 25 (:ttl chunk-meta))
       (.rewind))
     (-> (create-buffer capacity)
       (.clear)
@@ -38,17 +40,19 @@
       (.put (.rewind chunk-body))
       (.rewind))))
 
-;;; move into Hand?
 (defn buffer-to-meta [buffer]
   {:status (.get buffer 0)
    :position (.getLong buffer 1)
    :size (.getInt buffer 9)
-   :cell-size (.getInt buffer 13)})
+   :cell-size (.getInt buffer 13)
+   :born (.getLong buffer 17)
+   :ttl (.getInt buffer 25)})
 
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))
 
-(defn chunks-are-equal? [^java.nio.ByteBuffer chunk1 ^java.nio.ByteBuffer chunk2]
+(defn chunks-are-equal? [^java.nio.ByteBuffer chunk1
+                         ^java.nio.ByteBuffer chunk2]
   (= (hash-buffer chunk1) (hash-buffer chunk2)))
 
 ;;TODO: throw exception if unknown consistency was got

@@ -4,14 +4,17 @@
 
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"
-    (-> (create-buffer (:size-of-meta constants))
-      (.put 0 Byte/MAX_VALUE)
-      (.putLong 1 65549)
-      (.putInt 9 256)
-      (.putInt 13 113)
-      (buffer-to-meta)
-      (= {:status 127, :position 65549, :size 256, :cell-size 113})
-      (is))))
+    (let [born (System/currentTimeMillis )]
+      (-> (create-buffer (:size-of-meta constants))
+        (.put 0 Byte/MAX_VALUE)
+        (.putLong 1 65549)
+        (.putInt 9 256)
+        (.putInt 13 113)
+        (.putLong 17 born)
+        (.putInt 25 Integer/MAX_VALUE)
+        (buffer-to-meta )
+        (= {:status 127, :position 65549, :size 256, :cell-size 113, :born born :ttl Integer/MAX_VALUE})
+        (is)))))
 
 (deftest apply-consistently-test
   (testing "Test apply-consistently macros whitch is used for replicaopertions for Storages"
