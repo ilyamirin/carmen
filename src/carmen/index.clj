@@ -5,9 +5,10 @@
 ;;indexing
 
 (defn- find-first-applicable-cell [min-size registry]
-  (let [applicable-size (* min-size 1.5)]
+  (let [max-size (* min-size 1.5)
+        applicable-fn #(and (>= % min-size) (< % max-size))]
     (first
-      (filter #(>= (:size (get % 1)) applicable-size) registry))))
+      (filter #(applicable-fn (:size (get % 1))) registry))))
 
 (defprotocol PHandMemory
   (clean-indexes [this])

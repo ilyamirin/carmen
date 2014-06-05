@@ -9,9 +9,11 @@
 ;;storage operations
 
 ;;TODO: exceptions processing in Store
-;;TODO: add stats
-;;TODO: compressor function
+;;TODO: remove on demand overwriting prob
 ;;TODO: add checksums
+;;TODO: add ttl
+;;TODO: add versioning
+;;TODO: compressor function
 ;;TODO: ciphering
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)
@@ -56,8 +58,8 @@
   (forget-all [this]
     (clean-indexes memory))
 
-  ;;TODO: refactor this
   (rescan [this]
+    ;;TODO: refactor this
     (defn- load-existed-chunk-key [chunk-meta]
       (let [key (read-key hand chunk-meta)]
         (if (= (:status chunk-meta) Byte/MAX_VALUE)
