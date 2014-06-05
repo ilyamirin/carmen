@@ -8,7 +8,7 @@
   (let [max-size (* min-size 1.5)
         applicable-fn #(and (>= % min-size) (< % max-size))]
     (first
-      (filter #(applicable-fn (:size (get % 1))) registry))))
+      (filter #(->> 1 (get %) :size applicable-fn) registry))))
 
 (defprotocol PHandMemory
   (clean-indexes [this])
