@@ -3,7 +3,7 @@
   (:import [java.nio ByteBuffer]
            [java.io RandomAccessFile]))
 
-(def constants {:size-of-meta 29 :size-of-key 16 :chunk-position-offset 45})
+(def constants {:size-of-meta 33 :size-of-key 16 :chunk-position-offset 49})
 
 ;;tools
 
@@ -12,8 +12,9 @@
   (ByteBuffer/allocate capacity))
 
 (defn create-and-fill-buffer [capacity]
-  (let [array (byte-array capacity)]
-    (.nextBytes (java.util.Random.) array)
+  (let [array (byte-array capacity)
+        r (java.util.Random.)]
+    (.nextBytes r array)
     (ByteBuffer/wrap array)))
 
 (defn buffer-to-seq [buffer]
@@ -21,6 +22,9 @@
 
 (defn hash-buffer [buffer]
   (-> buffer (.rewind) (.hashCode)))
+
+(defn hash-buffers [& buffers]
+  (reduce #(bit-xor %1 (hash-buffer %2)) Integer/MAX_VALUE buffers))
 
 (defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
   (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
@@ -31,13 +35,13 @@
       (.putInt 9 (:size chunk-meta))
       (.putInt 13 (:cell-size chunk-meta))
       (.putLong 17 (:born chunk-meta))
-      (.putInt 25 (:ttl chunk-meta))
-      (.rewind))
+      (.putInt 25 (:ttl chunk-meta)))
     (-> (create-buffer capacity)
       (.clear)
-      (.put chunk-meta-buffer)
+      (.put (.rewind chunk-meta-buffer))
       (.put (.rewind key))
       (.put (.rewind chunk-body))
+      (.putInt 29 (hash-buffers key chunk-body chunk-meta-buffer)) ;;;checksum
       (.rewind))))
 
 (defn buffer-to-meta [buffer]
@@ -46,7 +50,8 @@
    :size (.getInt buffer 9)
    :cell-size (.getInt buffer 13)
    :born (.getLong buffer 17)
-   :ttl (.getInt buffer 25)})
+   :ttl (.getInt buffer 25)
+   :checksum (.getInt buffer 29)})
 
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))

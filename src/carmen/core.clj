@@ -7,11 +7,13 @@
 ;;storage operations
 
 ;;TODO: add checksums
+;;TODO: add File locks
 ;;TODO: repair function (remove incorrect, kill expired)
 ;;TODO: pour function (as compact)
 ;;TODO: add fixed cell size
 ;;TODO: add descriptions and README with usecases
 ;;version 1.0
+;;TODO: fix test descriptions adn split huge tests
 ;;TODO: ciphering
 ;;TODO: add stats
 ;;TODO: Bloom filter
