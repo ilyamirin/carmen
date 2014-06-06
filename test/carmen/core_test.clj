@@ -34,10 +34,10 @@
       (is (nil? (get-chunk test-carmen key)))
 
       (forget-all test-carmen)
-      (rescan test-carmen)
+      (remember-all test-carmen)
       (is (nil? (get-chunk test-carmen key)))
 
-      ;;;expired chunk must be added to free after rescan
+      ;;;expired chunk must be added to free after remember
       (let [used (used-space test-carmen)]
         (persist-chunk test-carmen (create-and-fill-buffer 16) chunk-body)
         (is (= used (used-space test-carmen)))))))
@@ -84,7 +84,7 @@
 
     (forget-all test-carmen)
 
-    (is (>= (rescan test-carmen) (count @chunks)))
+    (is (>= (remember-all test-carmen) (count @chunks)))
 
     (check-testing-results )
 

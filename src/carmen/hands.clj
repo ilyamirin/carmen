@@ -2,8 +2,6 @@
   (:require [taoensso.timbre :as timbre])
   (:use [carmen.tools]))
 
-;TODO: try to FChannel lock hand file
-
 (defprotocol PHand
   (take-in-hand [this key chunk-body ttl] [this key chunk-body])
   (retake-in-hand [this key chunk-body ttl chunk-meta] [this key chunk-body chunk-meta])

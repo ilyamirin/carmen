@@ -6,18 +6,19 @@
 
 ;;storage operations
 
-;;TODO: exceptions processing in Store
-;;TODO: compressor function
 ;;TODO: add checksums
-;;TODO: repair function
+;;TODO: repair function (remove incorrect, kill expired)
+;;TODO: pour function
+;;TODO: add fixed cell size
 ;;TODO: add descriptions and README
 ;;version 1.0
 ;;TODO: ciphering
 ;;TODO: add stats
-;;TODO: add fixed cell size
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)
 ;;TODO: drain function
+;;TODO: add consistency executions
+;;TODO: add consistent key maps
 ;;TODO: web server
 
 ;;business protocols
@@ -27,8 +28,8 @@
   (get-chunk [this key])
   (remove-chunk [this key])
   (forget-all [this])
-  (rescan [this])
-  (compress [this])
+  (rescan [this fn])
+  (remember-all [this])
   (used-space [this]))
 
 (deftype Store [^carmen.index.PHandMemory memory
@@ -63,15 +64,7 @@
   (forget-all [this]
     (clean-indexes memory))
 
-  (rescan [this]
-    ;;TODO: refactor this
-    (defn- load-existed-chunk-key [chunk-meta]
-      (let [key (read-key hand chunk-meta)]
-        (if (or (= (:status chunk-meta) Byte/MIN_VALUE) (expired? chunk-meta))
-          (put-to-free memory key chunk-meta)
-          (put-to-index memory key chunk-meta))
-        chunk-meta))
-
+  (rescan [this fn]
     (locking hand
       (loop [position 0
              chunks-were-scanned 0]
@@ -81,15 +74,19 @@
           (do
             (timbre/info chunks-were-scanned "chunks were scanned.")
             chunks-were-scanned)
-          ;;;TODO: replace with thread macro
           (recur
-            (+ position
-              (:cell-size
-                (load-existed-chunk-key
-                  (read-meta hand position))))
+            (->> position (read-meta hand ) fn :cell-size (+ position))
             (inc chunks-were-scanned))))))
 
-  (compress [this] nil)
+  (remember-all [this]
+    (timbre/info "Start remembering.")
+    (letfn [(load-existed-chunk-key [chunk-meta]
+              (let [key (read-key hand chunk-meta)]
+                (if (or (= (:status chunk-meta) Byte/MIN_VALUE) (expired? chunk-meta))
+                  (put-to-free memory key chunk-meta)
+                  (put-to-index memory key chunk-meta))
+                chunk-meta))]
+      (rescan this load-existed-chunk-key)))
 
   (used-space [this]
     (hand-size hand)))
