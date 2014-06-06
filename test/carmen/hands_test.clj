@@ -3,9 +3,9 @@
             [carmen.tools :refer :all]
             [carmen.hands :refer :all]))
 
-;TODO: make test file configurable
-
-(defonce test-hand (create-hand "./test_store.bin"))
+(def test-file "./carmen_storage.bin")
+(.delete (java.io.File. test-file))
+(defonce test-hand (create-hand test-file))
 
 (deftest read-write-remove-hand-test
   (testing "Test read/write/remove operations with a help of Hand."

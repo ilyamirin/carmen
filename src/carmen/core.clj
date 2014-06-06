@@ -6,7 +6,6 @@
 
 ;;storage operations
 
-;;TODO: add ttl
 ;;TODO: exceptions processing in Store
 ;;TODO: compressor function
 ;;TODO: add checksums

@@ -4,9 +4,9 @@
             [carmen.core :refer :all]
             [taoensso.timbre :as timbre]))
 
-;TODO: make test file configurable
-(.delete (java.io.File. "/tmp/storage2.bin"))
-(defstore test-carmen "/tmp/storage2.bin")
+(def test-file "./carmen_storage.bin")
+(.delete (java.io.File. test-file))
+(defstore test-carmen test-file)
 
 (deftest chunk-business-operations-test
   (testing "Test of chunks persist/read/remove operations."
