@@ -20,17 +20,27 @@
       (is (nil? (get-chunk test-carmen key))))
 
     ;;;ttl
-    ;;;do not clean index after all because we test ttl rewrite with first opertaion of the next test
     (let [key (create-and-fill-buffer 16)
-          chunk-body (create-and-fill-buffer (rand-int 65536))
+          chunk-body (create-and-fill-buffer 1)
           index-entry (persist-chunk test-carmen key chunk-body 100)
           chunk-meta (first (vals index-entry))]
+
       (is (= (:status chunk-meta) 127))
       (is (= (:size chunk-meta) (.capacity chunk-body)))
       (is (= (:ttl chunk-meta) 100))
       (is (chunks-are-equal? (get-chunk test-carmen key) chunk-body))
+
       (Thread/sleep 100)
-      (is (nil? (get-chunk test-carmen key))))))
+      (is (nil? (get-chunk test-carmen key)))
+
+      (forget-all test-carmen)
+      (rescan test-carmen)
+      (is (nil? (get-chunk test-carmen key)))
+
+      ;;;expired chunk must be added to free after rescan
+      (let [used (used-space test-carmen)]
+        (persist-chunk test-carmen (create-and-fill-buffer 16) chunk-body)
+        (is (= used (used-space test-carmen)))))))
 
 (deftest concurrent-chunk-business-operations-test
   (testing "Concurrent test of chunks persist/read/remove operations."
@@ -56,12 +66,15 @@
         (repeatedly n one-operation-quad))
       (timbre/info "One testing thread has finished at" (System/currentTimeMillis)))
 
+    (defn check-testing-results []
+      (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
+      (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks))))
+
     (let [start (System/currentTimeMillis)]
       (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
       (timbre/info (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
-    (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
-    (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
+    (check-testing-results )
 
     (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
           summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
@@ -73,16 +86,14 @@
 
     (is (>= (rescan test-carmen) (count @chunks)))
 
-    (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
-    (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
+    (check-testing-results )
 
     (let [start (System/currentTimeMillis)
           old-count (count @chunks)]
       (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
       (timbre/info (- (count @chunks) old-count) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
-    (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
-    (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks)))
+    (check-testing-results )
 
     (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
           summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]

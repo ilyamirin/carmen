@@ -66,30 +66,29 @@
 
   (rescan [this]
     ;;TODO: refactor this
-    ;;TODO: add expired to free
-    ;;TODO: add forgive before
-    ;;TODO: add free expires
     (defn- load-existed-chunk-key [chunk-meta]
       (let [key (read-key hand chunk-meta)]
-        (if (or (= (:status chunk-meta) Byte/MAX_VALUE) (expired? chunk-meta))
-          (put-to-index memory key chunk-meta)
-          (put-to-free memory key chunk-meta))
+        (if (or (= (:status chunk-meta) Byte/MIN_VALUE) (expired? chunk-meta))
+          (put-to-free memory key chunk-meta)
+          (put-to-index memory key chunk-meta))
         chunk-meta))
 
     (locking hand
       (loop [position 0
-             chunks-were-loaded 0]
-        (if (= (rem chunks-were-loaded 100) 0)
-          (timbre/info chunks-were-loaded "chunks were loaded."))
+             chunks-were-scanned 0]
+        (if (= (rem chunks-were-scanned 100) 0)
+          (timbre/info chunks-were-scanned "chunks were scanned."))
         (if (>= position (hand-size hand))
-          chunks-were-loaded
+          (do
+            (timbre/info chunks-were-scanned "chunks were scanned.")
+            chunks-were-scanned)
           ;;;TODO: replace with thread macro
           (recur
             (+ position
               (:cell-size
                 (load-existed-chunk-key
                   (read-meta hand position))))
-            (inc chunks-were-loaded))))))
+            (inc chunks-were-scanned))))))
 
   (compress [this] nil)
 
