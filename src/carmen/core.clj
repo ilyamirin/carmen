@@ -8,15 +8,15 @@
 
 ;;TODO: add checksums
 ;;TODO: repair function (remove incorrect, kill expired)
-;;TODO: pour function
+;;TODO: pour function (as compact)
 ;;TODO: add fixed cell size
-;;TODO: add descriptions and README
+;;TODO: add descriptions and README with usecases
 ;;version 1.0
 ;;TODO: ciphering
 ;;TODO: add stats
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)
-;;TODO: drain function
+;;TODO: drain function??
 ;;TODO: add consistency executions
 ;;TODO: add consistent key maps
 ;;TODO: web server
@@ -25,6 +25,7 @@
 
 (defprotocol PStore
   (persist-chunk [this key chunk-body ttl] [this key chunk-body])
+  (exists-key? [this key])
   (get-chunk [this key])
   (remove-chunk [this key])
   (forget-all [this])
@@ -48,7 +49,12 @@
   (persist-chunk [this key chunk-body]
     (persist-chunk this key chunk-body 0))
 
-  ;;TODO: add exists method
+  (exists-key? [this key]
+    (if (index-contains-key? memory key)
+      (let [meta (get-from-index memory key)]
+        (if-not (expired? meta) true false))
+      false))
+
   (get-chunk [this key]
     (if (index-contains-key? memory key)
       (let [meta (get-from-index memory key)]

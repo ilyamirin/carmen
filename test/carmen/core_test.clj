@@ -14,9 +14,11 @@
     (let [key (create-and-fill-buffer 16)
           chunk-body (create-and-fill-buffer (rand-int 65536))]
       (persist-chunk test-carmen key chunk-body)
+      (is (exists-key? test-carmen key))
       (is (chunks-are-equal? (get-chunk test-carmen key) chunk-body))
 
       (remove-chunk test-carmen key)
+      (is (not (exists-key? test-carmen key)))
       (is (nil? (get-chunk test-carmen key))))
 
     ;;;ttl
@@ -28,13 +30,16 @@
       (is (= (:status chunk-meta) 127))
       (is (= (:size chunk-meta) (.capacity chunk-body)))
       (is (= (:ttl chunk-meta) 100))
+      (is (exists-key? test-carmen key))
       (is (chunks-are-equal? (get-chunk test-carmen key) chunk-body))
 
       (Thread/sleep 100)
+      (is (not (exists-key? test-carmen key)))
       (is (nil? (get-chunk test-carmen key)))
 
       (forget-all test-carmen)
       (remember-all test-carmen)
+      (is (not (exists-key? test-carmen key)))
       (is (nil? (get-chunk test-carmen key)))
 
       ;;;expired chunk must be added to free after remember
@@ -51,10 +56,12 @@
       (let [key (create-and-fill-buffer 16)
             chunk-body (create-and-fill-buffer (rand-int 65536))]
         (persist-chunk test-carmen key chunk-body)
+        (is (exists-key? test-carmen key))
         (is (chunks-are-equal? (get-chunk test-carmen key) chunk-body))
         (if (> (rand) 0.5)
           (do
             (remove-chunk test-carmen key)
+            (is (not (exists-key? test-carmen key)))
             (is (nil? (get-chunk test-carmen key)))
             (dosync
               (alter removed-chunks assoc key chunk-body)))
