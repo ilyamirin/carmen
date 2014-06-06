@@ -16,9 +16,7 @@
   (read-key [this chunk-meta]))
 
 (deftype Hand [channel]
-
   PHand
-
   (take-in-hand [this key chunk-body ttl]
     (locking channel
       (let [position (.size channel)
@@ -83,7 +81,6 @@
       (.size channel)))
 
   ;;;be careful to directly use next two methods!
-  ;;;TODO: test next two methods
 
   (read-meta [this position]
     (let [meta-buffer (create-buffer (:size-of-meta constants))]

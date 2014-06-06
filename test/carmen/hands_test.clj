@@ -3,6 +3,8 @@
             [carmen.tools :refer :all]
             [carmen.hands :refer :all]))
 
+;TODO: make test file configurable
+
 (defonce test-hand (create-hand "./test_store.bin"))
 
 (deftest read-write-remove-hand-test
@@ -51,6 +53,7 @@
                 :ttl 0}
               (dissoc chunk-meta :born)))
 
+        (is (not= (:position chunk-meta) nil))
         (is (not= (:born chunk-meta) nil))
         (is (> (:born chunk-meta) 0))
 
