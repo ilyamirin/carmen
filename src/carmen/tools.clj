@@ -65,3 +65,10 @@
                  (<= quorum#
                    (reduce #(if (true? %2) (inc %1) %1) 0 result#)))
        :all (every? true? result#))))
+
+(defn expired? [meta]
+  (let [ttl (:ttl meta)
+        born (:born meta)]
+    (if (pos? ttl)
+      (< (+ born ttl) (System/currentTimeMillis ))
+      false)))

@@ -29,3 +29,11 @@
 
     (is (= false (apply-consistently :all = [1 3 1 4 5] 1)))
     (is (= true (apply-consistently :all = [1 1 1] 1)))))
+
+(deftest is-expired-test
+  (testing "Test expired? function, which checks expiration of chunk meta with ttl."
+    (let [born (- (System/currentTimeMillis ) 5000)]
+      (is (expired? {:ttl 3000 :born born}))
+      (is (not (expired? {:ttl 10000 :born born})))
+      (is (not (expired? {:ttl 0 :born born})))
+      (is (not (expired? {:ttl -100 :born born}))))))
