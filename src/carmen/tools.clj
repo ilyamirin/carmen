@@ -3,7 +3,11 @@
   (:import [java.nio ByteBuffer]
            [java.io RandomAccessFile]))
 
-(def constants {:size-of-meta 33 :size-of-key 16 :chunk-position-offset 49})
+(def constants {:size-of-meta 29
+                :size-of-key 16
+                :chunk-position-offset 45
+                :size-of-checksum 4
+                :not-chunk-size 49})
 
 ;;tools
 
@@ -26,23 +30,27 @@
 (defn hash-buffers [& buffers]
   (reduce #(bit-xor %1 (hash-buffer %2)) Integer/MAX_VALUE buffers))
 
+(defn wrap-chunk-meta [chunk-meta]
+  (-> (create-buffer (:size-of-meta constants))
+    (.put 0 (:status chunk-meta))
+    (.putLong 1 (:position chunk-meta))
+    (.putInt 9 (:size chunk-meta))
+    (.putInt 13 (:cell-size chunk-meta))
+    (.putLong 17 (:born chunk-meta))
+    (.putInt 25 (:ttl chunk-meta))))
+
 (defn wrap-key-chunk-and-meta [key chunk-body chunk-meta]
-  (let [capacity (+ (:size-of-meta constants) (:size-of-key constants) (.capacity chunk-body))
-        chunk-meta-buffer (create-buffer (:size-of-meta constants))]
-    (-> chunk-meta-buffer
-      (.put 0 (:status chunk-meta))
-      (.putLong 1 (:position chunk-meta))
-      (.putInt 9 (:size chunk-meta))
-      (.putInt 13 (:cell-size chunk-meta))
-      (.putLong 17 (:born chunk-meta))
-      (.putInt 25 (:ttl chunk-meta)))
-    (-> (create-buffer capacity)
-      (.clear)
+  (let [chunk-meta-buffer (wrap-chunk-meta chunk-meta)
+        checksum-position (+ (:chunk-position-offset constants) (.capacity chunk-body))
+        size (+ checksum-position (:size-of-checksum constants))
+        checksum (hash-buffers key chunk-body chunk-meta-buffer)]
+    (-> (create-buffer size)
+      .clear
       (.put (.rewind chunk-meta-buffer))
       (.put (.rewind key))
       (.put (.rewind chunk-body))
-      (.putInt 29 (hash-buffers key chunk-body chunk-meta-buffer)) ;;;checksum
-      (.rewind))))
+      (.putInt checksum-position checksum)
+      .rewind)))
 
 (defn buffer-to-meta [buffer]
   {:status (.get buffer 0)
@@ -50,8 +58,7 @@
    :size (.getInt buffer 9)
    :cell-size (.getInt buffer 13)
    :born (.getLong buffer 17)
-   :ttl (.getInt buffer 25)
-   :checksum (.getInt buffer 29)})
+   :ttl (.getInt buffer 25)})
 
 (defn get-channel-of-file [filepath]
   (.getChannel (RandomAccessFile. filepath "rw")))

@@ -11,14 +11,16 @@
   (compact-hand [this])
   (hand-size [this])
   (read-meta [this position])
-  (read-key [this chunk-meta]))
+  (read-key [this chunk-meta])
+  (holistic? [this chunk-meta]))
 
+;(.putInt 29 (:checksum chunk-meta))
 (deftype Hand [channel]
   PHand
   (take-in-hand [this key chunk-body ttl]
     (locking channel
       (let [position (.size channel)
-            cell-size (+ (:chunk-position-offset constants) (.capacity chunk-body))
+            cell-size (+ (:not-chunk-size constants) (.capacity chunk-body))
             chunk-meta {:status Byte/MAX_VALUE
                         :position position
                         :size (.capacity chunk-body)
@@ -78,7 +80,7 @@
     (locking channel
       (.size channel)))
 
-  ;;;be careful to directly use next two methods!
+  ;;;be careful to directly use next three methods!
 
   (read-meta [this position]
     (let [meta-buffer (create-buffer (:size-of-meta constants))]
@@ -86,10 +88,24 @@
       (buffer-to-meta meta-buffer)))
 
   (read-key [this chunk-meta]
-    (let [key (create-buffer (:size-of-key constants))
+    (let [key (.clear (create-buffer (:size-of-key constants)))
           position (+ (:position chunk-meta) (:size-of-meta constants))]
-      (.read channel (.clear key) position)
-      key)))
+      (while (.hasRemaining key)
+        (.read channel key position))
+      key))
+
+  (holistic? [this chunk-meta]
+    (let [key (read-key this chunk-meta)
+          chunk (give-with-hand this chunk-meta)
+          chunk-meta-buffer (wrap-chunk-meta chunk-meta)
+          expected-checksum (hash-buffers key chunk chunk-meta-buffer)
+          checksum-buffer (.clear (create-buffer (:size-of-checksum constants)))
+          checksum-position (+ (:position chunk-meta)
+                              (:chunk-position-offset constants)
+                              (:size chunk-meta))]
+      (while (.hasRemaining checksum-buffer)
+        (.read channel checksum-buffer checksum-position))
+      (= (.getInt checksum-buffer 0) expected-checksum))))
 
 (defn create-hand [filepath]
   (Hand. (get-channel-of-file filepath)))

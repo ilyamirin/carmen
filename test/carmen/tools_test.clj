@@ -22,6 +22,50 @@
           (hash-buffers key buffer)
           (hash-buffers key buffer meta))))))
 
+(deftest wrap-chunk-meta-test
+  (testing "Test loading chunk meta data map to buffer."
+    (is
+      (=
+        (hash-buffer
+          (wrap-chunk-meta {:status 127
+                            :position 65549
+                            :size 256
+                            :cell-size 113
+                            :born Long/MAX_VALUE
+                            :ttl Integer/MAX_VALUE}))
+        (-> (create-buffer (:size-of-meta constants))
+          (.put 0 Byte/MAX_VALUE)
+          (.putLong 1 65549)
+          (.putInt 9 256)
+          (.putInt 13 113)
+          (.putLong 17 Long/MAX_VALUE)
+          (.putInt 25 Integer/MAX_VALUE)
+          hash-buffer)))))
+
+(deftest wrap-key-chunk-and-meta-test
+  (testing "Test loading chunk key, chunk body and chunk meta buffers to single buffer."
+    (let [key (create-and-fill-buffer (:size-of-key constants))
+          chunk-body (create-and-fill-buffer 65536)
+          chunk-meta {:status 127
+                      :position 65549
+                      :size 256
+                      :cell-size 113
+                      :born Long/MAX_VALUE
+                      :ttl Integer/MAX_VALUE}
+          chunk-meta-buffer (wrap-chunk-meta chunk-meta)
+          checksum-position (+ (:chunk-position-offset constants) (.capacity chunk-body))
+          size (+ checksum-position (:size-of-checksum constants))
+          checksum (hash-buffers key chunk-body chunk-meta-buffer)]
+      (-> (create-buffer size)
+        .clear
+        (.put (.rewind chunk-meta-buffer))
+        (.put (.rewind key))
+        (.put (.rewind chunk-body))
+        (.putInt checksum-position checksum)
+        hash-buffer
+        (= (hash-buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)))
+        is))))
+
 (deftest buffer-to-chunk-meta-test
   (testing "Test deserializing buffer to chunk meta map"
     (let [born (System/currentTimeMillis )]
@@ -32,16 +76,14 @@
         (.putInt 13 113)
         (.putLong 17 born)
         (.putInt 25 Integer/MAX_VALUE)
-        (.putInt 29 Integer/MIN_VALUE)
         (buffer-to-meta )
         (= {:status 127
             :position 65549
             :size 256
             :cell-size 113
             :born born
-            :ttl Integer/MAX_VALUE
-            :checksum Integer/MIN_VALUE})
-        (is)))))
+            :ttl Integer/MAX_VALUE})
+        is))))
 
 (deftest apply-consistently-test
   (testing "Test apply-consistently macros whitch is used for replicaopertions for Storages"

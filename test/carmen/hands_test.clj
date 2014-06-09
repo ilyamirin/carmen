@@ -17,13 +17,14 @@
           chunk-meta (take-in-hand test-hand key chunk-body 1500)];;; keep it 1,5 seconds
       (is (= {:status Byte/MAX_VALUE
               :size (.capacity chunk-body)
-              :cell-size (+ (:chunk-position-offset constants) (.capacity chunk-body))
+              :cell-size (+ (:not-chunk-size constants) (.capacity chunk-body))
               :position (:position chunk-meta)
               :ttl 1500}
             (dissoc chunk-meta :born)))
       (is (not= (:born chunk-meta) nil))
       (is (> (:born chunk-meta) 0))
       (is (chunks-are-equal? chunk-body (give-with-hand test-hand chunk-meta)))
+      (is (holistic? test-hand chunk-meta))
 
       (let [new-key (create-and-fill-buffer 16)
             new-chunk-body (create-and-fill-buffer (rand-int (.capacity chunk-body)))
@@ -31,7 +32,8 @@
             new-meta (retake-in-hand test-hand new-key new-chunk-body deleted-meta)]
         (is (= Byte/MIN_VALUE (:status deleted-meta)))
         (is (not= (dissoc deleted-meta :born) (dissoc new-meta :born)))
-        (is (not= (:born deleted-meta) (:born new-meta)))))))
+        (is (not= (:born deleted-meta) (:born new-meta)))
+        (is (holistic? test-hand new-meta))))))
 
 (deftest concurrent-read-write-remove-hand-test
   (testing "Concurrently test read/write/remove operations with a help of Hand."
@@ -48,7 +50,7 @@
 
         (is (= {:status Byte/MAX_VALUE
                 :size (.capacity chunk-body)
-                :cell-size (+ (:chunk-position-offset constants) (.capacity chunk-body))
+                :cell-size (+ (:not-chunk-size constants) (.capacity chunk-body))
                 :position (:position chunk-meta)
                 :ttl 0}
               (dissoc chunk-meta :born)))
@@ -68,7 +70,7 @@
             (is (not= (dissoc deleted-meta :born) (dissoc new-meta :born)))
             (swap! saved-chunks assoc new-meta new-chunk-body))
           (swap! saved-chunks assoc chunk-meta chunk-body))
-        (swap! test-hand-size + (.capacity chunk-body) (:chunk-position-offset constants))))
+        (swap! test-hand-size + (:not-chunk-size constants) (.capacity chunk-body))))
 
     (dorun 1000
       (repeatedly 1000

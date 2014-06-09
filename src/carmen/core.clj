@@ -6,7 +6,6 @@
 
 ;;storage operations
 
-;;TODO: add checksums
 ;;TODO: add File locks
 ;;TODO: repair function (remove incorrect, kill expired)
 ;;TODO: pour function (as compact)
