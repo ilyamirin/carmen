@@ -46,9 +46,9 @@
       (is (nil? (get-chunk test-carmen key)))
 
       ;;;expired chunk must be added to free after remember
-      (let [used (used-space test-carmen)]
+      (let [used (:file-size (get-state test-carmen))]
         (persist-chunk test-carmen (create-and-fill-buffer 16) chunk-body)
-        (is (= used (used-space test-carmen)))))))
+        (is (= used (:file-size (get-state test-carmen))))))))
 
 (deftest concurrent-chunk-business-operations-test
   (testing "Concurrent test of chunks persist/read/remove operations."
@@ -89,14 +89,17 @@
       (timbre/info (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
     (let [key-meta-space (:not-chunk-size constants)
-          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
-      (timbre/info (int (/ (used-space test-carmen) 1000000)) "Mb of space was used")
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))
+          used-space (:file-size (get-state test-carmen))]
+      (timbre/info (int (/ used-space 1000000)) "Mb of space was used")
       (timbre/info (int (/ summary-space 1000000)) "Mb of data was loaded")
-      (is (< (used-space test-carmen) (* summary-space 1.5))))
+      (is (< used-space (* summary-space 1.5))))
 
-    (forget-all test-carmen)
-
-    (is (>= (remember-all test-carmen) (count @chunks)))
+    (let [state (get-state test-carmen)]
+      (forget-all test-carmen)
+      (repair test-carmen)
+      (is (>= (remember-all test-carmen) (count @chunks)))
+      (is (= state (get-state test-carmen))))
 
     (check-testing-results )
 
@@ -108,8 +111,9 @@
     (check-testing-results )
 
     (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
-          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
-      (timbre/info (int (/ (used-space test-carmen) 1000000)) "Mb of space was used")
+          summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))
+          used-space (:file-size (get-state test-carmen))]
+      (timbre/info (int (/ used-space 1000000)) "Mb of space was used")
       (timbre/info (int (/ summary-space 1000000)) "Mb of data was loaded")
-      (is (< (used-space test-carmen) (* summary-space 1.5))))))
+      (is (< used-space (* summary-space 1.5))))))
 

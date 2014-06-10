@@ -5,7 +5,6 @@
 ;;indexing
 
 ;TODO: rename to memory
-;TODO: return unused acquired cells to free
 
 (defn- find-first-applicable-cell [min-size registry]
   (let [max-size (* min-size 1.5)
@@ -21,7 +20,7 @@
   (move-from-index-to-free [this key])
   (put-to-free [this key value])
   (acquire-free [this min-size])
-  (get-state [this]))
+  (get-memory-state [this]))
 
 (deftype HandMemory [^clojure.lang.Ref index
                      ^clojure.lang.Ref free-cells]
@@ -60,7 +59,7 @@
             (alter free-cells dissoc key-hash)
             chunk-meta)))))
 
-  (get-state [this]
+  (get-memory-state [this]
     (dosync
       {:index-size (count @index)
       :free-cells (count @free-cells)})))

@@ -6,13 +6,15 @@
 
 ;;storage operations
 
-;;TODO: repair function (remove incorrect, kill expired)
-;;TODO: pour function (as compact)
+;;TODO: do not load inholistic chunks to index
+;;TODO: check expired function
+;;TODO: mutate repair to pour function (as compact) + hand state
 ;;TODO: add fixed cell size option
 ;;TODO: add overwriting option
 ;;TODO: add descriptions and README with usecases
 ;;version 1.0
 ;;TODO: fix test descriptions and split huge tests
+;;TODO: return unused acquired cells to free
 ;;TODO: ciphering
 ;;TODO: add stats
 ;;TODO: Bloom filter
@@ -29,10 +31,11 @@
   (exists-key? [this key])
   (get-chunk [this key])
   (remove-chunk [this key])
+  (get-state [this])
   (forget-all [this])
   (rescan [this fn])
   (remember-all [this])
-  (used-space [this]))
+  (repair [this]))
 
 (deftype Store [^carmen.index.PHandMemory memory
                 ^carmen.hands.PHand hand]
@@ -68,6 +71,12 @@
         (drop-with-hand hand (get-from-index memory key))
         (move-from-index-to-free memory key))))
 
+  (get-state [this]
+    {:file-size (hand-size hand)
+     :memory (get-memory-state memory)})
+
+  ;;;do not call therefore functions durung work
+
   (forget-all [this]
     (clean-indexes memory))
 
@@ -95,8 +104,15 @@
                 chunk-meta))]
       (rescan this load-existed-chunk-key)))
 
-  (used-space [this]
-    (hand-size hand)))
+  (repair [this]
+    (timbre/info "Start repairing.")
+    (letfn [(repair-existed-storage [chunk-meta]
+              (if (= (:status chunk-meta) Byte/MIN_VALUE)
+                chunk-meta
+                (if (or (not (holistic? hand chunk-meta)) (expired? chunk-meta))
+                  (drop-with-hand hand chunk-meta)
+                  chunk-meta)))]
+      (rescan this repair-existed-storage))))
 
 (defmacro defstore [name path-to-storage]
   `(defonce ~name (Store. (create-memory) (create-hand ~path-to-storage))))
