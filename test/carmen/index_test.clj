@@ -14,16 +14,19 @@
       (is (not= (put-to-index memory key chunk-meta) nil))
       (is (= (index-contains-key? memory key) true))
       (is (= (get-from-index memory key) chunk-meta))
+      (is (= (get-state memory) {:index-size 1 :free-cells 0}))
 
       (move-from-index-to-free memory key)
       (is (not= (index-contains-key? memory key) true))
       (is (not= (get-from-index memory key) chunk-meta))
+      (is (= (get-state memory) {:index-size 0 :free-cells 1}))
 
       (is (nil? (acquire-free memory 1)))
       (is (nil? (acquire-free memory 257)))
       (is (not= (acquire-free memory (:size chunk-meta)) nil))
       (is (= (index-contains-key? memory key) false))
-      (is (= (get-from-index memory key) nil)))))
+      (is (= (get-from-index memory key) nil))
+      (is (= (get-state memory) {:index-size 0 :free-cells 0})))))
 
 (deftest concurrent-index-basic-operations-test
   (testing "Concurrent index operations test."
