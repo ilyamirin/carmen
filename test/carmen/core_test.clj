@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [carmen.tools :refer :all]
             [carmen.core :refer :all]
-            [taoensso.timbre :as timbre]))
+            [taoensso.timbre :as timbre])
+  (:import [java.nio.channels OverlappingFileLockException]))
 
 (def test-file "./carmen_storage.bin")
 (.delete (java.io.File. test-file))
@@ -10,6 +11,8 @@
 
 (deftest chunk-business-operations-test
   (testing "Test of chunks persist/read/remove operations."
+    (is (thrown? OverlappingFileLockException (.lock (get-channel-of-file test-file))))
+
     ;;;create-remove
     (let [key (create-and-fill-buffer 16)
           chunk-body (create-and-fill-buffer (rand-int 65536))]
@@ -77,13 +80,15 @@
       (doall (map #(is (chunks-are-equal? (get-chunk test-carmen %) (get @chunks %))) (keys @chunks)))
       (doall (map #(is (not (get-chunk test-carmen %))) (keys @removed-chunks))))
 
+    (is (.exists (java.io.File. test-file)))
+
     (let [start (System/currentTimeMillis)]
-      (dorun (pvalues (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
+      (dorun
+        (pvalues
+          (repeated-quad 1000) (repeated-quad 1000) (repeated-quad 1000)))
       (timbre/info (count @chunks) "chunks processed for" (- (System/currentTimeMillis) start) "mseconds"))
 
-    (check-testing-results )
-
-    (let [key-meta-space (+ (:size-of-meta constants) (:size-of-key constants))
+    (let [key-meta-space (:not-chunk-size constants)
           summary-space (reduce #(+ %1 (.capacity %2) key-meta-space) 0 (vals @chunks))]
       (timbre/info (int (/ (used-space test-carmen) 1000000)) "Mb of space was used")
       (timbre/info (int (/ summary-space 1000000)) "Mb of data was loaded")

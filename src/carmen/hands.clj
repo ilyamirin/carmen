@@ -14,8 +14,7 @@
   (read-key [this chunk-meta])
   (holistic? [this chunk-meta]))
 
-;(.putInt 29 (:checksum chunk-meta))
-(deftype Hand [channel]
+(deftype Hand [channel lock]
   PHand
   (take-in-hand [this key chunk-body ttl]
     (locking channel
@@ -30,6 +29,7 @@
             buffer (wrap-key-chunk-and-meta key chunk-body chunk-meta)]
         (while (.hasRemaining buffer)
           (.write channel buffer position))
+        (.force channel true)
         chunk-meta)))
 
   (take-in-hand [this key chunk-body]
@@ -46,7 +46,8 @@
           buffer (wrap-key-chunk-and-meta key chunk-body new-chunk-meta)]
       (locking channel
         (while (.hasRemaining buffer)
-          (.write channel buffer position)))
+          (.write channel buffer position))
+        (.force channel true))
       new-chunk-meta))
 
   (retake-in-hand [this key chunk-body chunk-meta]
@@ -65,7 +66,8 @@
           buffer (.rewind (.put (create-buffer 1) 0 Byte/MIN_VALUE))]
       (locking channel
         (while (.hasRemaining buffer)
-          (.write channel buffer position))))
+          (.write channel buffer position))
+        (.force channel true)))
     (assoc chunk-meta :status Byte/MIN_VALUE))
 
   (wash-hand [this]
@@ -108,4 +110,5 @@
       (= (.getInt checksum-buffer 0) expected-checksum))))
 
 (defn create-hand [filepath]
-  (Hand. (get-channel-of-file filepath)))
+  (let [channel (get-channel-of-file filepath)]
+    (Hand. channel (.lock channel))))

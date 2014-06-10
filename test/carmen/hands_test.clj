@@ -9,6 +9,8 @@
 
 (deftest read-write-remove-hand-test
   (testing "Test read/write/remove operations with a help of Hand."
+    (is (thrown? Exception (create-hand test-file)))
+
     (wash-hand test-hand)
     (is (zero? (hand-size test-hand)))
 
