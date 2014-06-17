@@ -6,8 +6,7 @@
 
 ;;storage operations
 
-;;TODO: do not load inholistic chunks to index
-;;TODO: check expired function
+;;TODO: check expired in index function
 ;;TODO: mutate repair to pour function (as compact) + hand state
 ;;TODO: add fixed cell size option
 ;;TODO: add overwriting option
@@ -16,7 +15,7 @@
 ;;TODO: fix test descriptions and split huge tests
 ;;TODO: return unused acquired cells to free
 ;;TODO: ciphering
-;;TODO: add stats
+;;TODO: add states
 ;;TODO: Bloom filter
 ;;TODO: birthday paradox problem (large keys?)
 ;;TODO: drain function??
@@ -97,8 +96,10 @@
   (remember-all [this]
     (timbre/info "Start remembering.")
     (letfn [(load-existed-chunk-key [chunk-meta]
-              (let [key (read-key hand chunk-meta)]
-                (if (or (= (:status chunk-meta) Byte/MIN_VALUE) (expired? chunk-meta))
+              (let [key (read-key hand chunk-meta)
+                    not-holistic? (not (holistic? hand chunk-meta))
+                    deleted? (= (:status chunk-meta) Byte/MIN_VALUE)]
+                (if (or not-holistic? deleted? (expired? chunk-meta))
                   (put-to-free memory key chunk-meta)
                   (put-to-index memory key chunk-meta))
                 chunk-meta))]
