@@ -41,7 +41,7 @@
       (is (nil? (get-chunk test-carmen key)))
 
       (forget-all test-carmen)
-      (remember-all test-carmen)
+      (rescan test-carmen)
       (is (not (exists-key? test-carmen key)))
       (is (nil? (get-chunk test-carmen key)))
 
@@ -97,8 +97,8 @@
 
     (let [state (get-state test-carmen)]
       (forget-all test-carmen)
-      (repair test-carmen)
-      (is (>= (remember-all test-carmen) (count @chunks)))
+      (rescan test-carmen)
+      (is (>= (rescan test-carmen) (count @chunks)))
       (is (= state (get-state test-carmen))))
 
     (check-testing-results )

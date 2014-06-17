@@ -6,10 +6,11 @@
 
 ;;storage operations
 
-;;TODO: check expired in index function
 ;;TODO: mutate repair to pour function (as compact) + hand state
+;;TODO: check expired in index function
 ;;TODO: add fixed cell size option
 ;;TODO: add overwriting option
+;;TODO: switch to channels
 ;;TODO: add descriptions and README with usecases
 ;;version 1.0
 ;;TODO: fix test descriptions and split huge tests
@@ -32,9 +33,8 @@
   (remove-chunk [this key])
   (get-state [this])
   (forget-all [this])
-  (rescan [this fn])
-  (remember-all [this])
-  (repair [this]))
+  (apply-fn-to-every-chunk [this fn])
+  (rescan [this]))
 
 (deftype Store [^carmen.index.PHandMemory memory
                 ^carmen.hands.PHand hand]
@@ -79,7 +79,7 @@
   (forget-all [this]
     (clean-indexes memory))
 
-  (rescan [this fn]
+  (apply-fn-to-every-chunk [this fn]
     (locking hand
       (loop [position 0
              chunks-were-scanned 0]
@@ -93,27 +93,20 @@
             (->> position (read-meta hand ) fn :cell-size (+ position))
             (inc chunks-were-scanned))))))
 
-  (remember-all [this]
-    (timbre/info "Start remembering.")
+  (rescan [this]
+    (timbre/info "Start rescan.")
     (letfn [(load-existed-chunk-key [chunk-meta]
               (let [key (read-key hand chunk-meta)
                     not-holistic? (not (holistic? hand chunk-meta))
-                    deleted? (= (:status chunk-meta) Byte/MIN_VALUE)]
-                (if (or not-holistic? deleted? (expired? chunk-meta))
+                    deleted? (= (:status chunk-meta) Byte/MIN_VALUE)
+                    old? (expired? chunk-meta)]
+                (if (or not-holistic? deleted? old?)
                   (put-to-free memory key chunk-meta)
                   (put-to-index memory key chunk-meta))
-                chunk-meta))]
-      (rescan this load-existed-chunk-key)))
-
-  (repair [this]
-    (timbre/info "Start repairing.")
-    (letfn [(repair-existed-storage [chunk-meta]
-              (if (= (:status chunk-meta) Byte/MIN_VALUE)
-                chunk-meta
-                (if (or (not (holistic? hand chunk-meta)) (expired? chunk-meta))
+                (if (or not-holistic? old?)
                   (drop-with-hand hand chunk-meta)
                   chunk-meta)))]
-      (rescan this repair-existed-storage))))
+      (apply-fn-to-every-chunk this load-existed-chunk-key))))
 
 (defmacro defstore [name path-to-storage]
   `(defonce ~name (Store. (create-memory) (create-hand ~path-to-storage))))
