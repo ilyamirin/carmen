@@ -1,6 +1,6 @@
 # carmen
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library designed to be shown as code samples on Java Day conf as the example of Java deep anal theory.
 
 ## Usage
 
